@@ -5,19 +5,22 @@ channels:
   - nodefaults
 dependencies:
   - python =3.12 
+  - snakemake >=8
+  - quarto
   - r-base >=4.4
   - r-yaml
+  - r-data.table
   - r-tidyverse
   - r-pheatmap
   - r-ggrepel
   - r-msigdbr
+  - r-knitr
+  - r-rmarkdown 
   - bioconductor-tcgabiolinks
   - bioconductor-summarizedexperiment
   - bioconductor-deseq2
   - bioconductor-apeglm
   - bioconductor-fgsea
   - bioconductor-clusterprofiler
-  - bioconductor-reactomepa
   - bioconductor-org.hs.eg.db
   - bioconductor-geoquery
-  - bioconductor-enhancedvolcano

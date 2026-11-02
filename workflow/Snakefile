@@ -6,6 +6,10 @@ configfile: "config/config.yaml"
 OUT = config["outputs"]
 QC  = "results/qc"
 DE  = "results/de"
+GS  = "results/gsea"
+VA  = "results/validation"
+AN  = "results/ancestry"
+GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
     input:
@@ -14,8 +18,12 @@ rule all:
         f"{QC}/qc_sample_flags.tsv",
         f"{DE}/deseq2_all_genes.tsv",
         f"{DE}/sensitivity_summary.tsv",
-        # Later milestones will add: GSEA,
-        # GEO validation, and the rendered Quarto report.
+        f"{GS}/fgsea_hallmark.tsv",
+        f"{GS}/fgsea_reactome.tsv",
+        f"{VA}/validation_summary.tsv",
+        f"{AN}/ancestry_summary.tsv",
+        "reports/report.html",
+        "docs/index.html",
 
 
 rule download_tcga:
@@ -94,3 +102,117 @@ rule deseq2:
         "envs/r-bioc.yaml"
     script:
         "scripts/04_deseq2.R"
+
+
+rule gsea:
+    input:
+        de = f"{DE}/deseq2_all_genes.tsv",
+    output:
+        ranks          = f"{GS}/ranked_genes.rnk",
+        hallmark       = f"{GS}/fgsea_hallmark.tsv",
+        reactome       = f"{GS}/fgsea_reactome.tsv",
+        ora            = f"{GS}/ora_hallmark.tsv",
+        concordance    = f"{GS}/hallmark_gsea_vs_ora.tsv",
+        hallmark_plot  = f"{GS}/hallmark_nes.png",
+        reactome_plot  = f"{GS}/reactome_top_dotplot.png",
+        enrichment_pdf = f"{GS}/hallmark_enrichment_plots.pdf",
+    params:
+        fdr      = 0.05,
+        min_size = 15,    # smallest gene set tested
+        max_size = 500,   # largest gene set tested
+        seed     = 42,
+    threads: 4
+    log:
+        "logs/05_gsea.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/05_gsea.R"
+
+
+rule geo_validation:
+    input:
+        counts        = f"{GEO}/GSE104131_raw_counts_GRCh38.p13_NCBI.tsv.gz",
+        matrix        = f"{GEO}/GSE104131_series_matrix.txt.gz",
+        tcga_de       = f"{DE}/deseq2_all_genes.tsv",
+        tcga_hallmark = f"{GS}/fgsea_hallmark.tsv",
+    output:
+        sample_sheet = "data/processed/geo_sample_sheet.tsv",
+        dds_fit      = "data/processed/geo_dds_fitted.rds",
+        de           = f"{VA}/geo_deseq2_all_genes.tsv",
+        hallmark     = f"{VA}/geo_fgsea_hallmark.tsv",
+        summary      = f"{VA}/validation_summary.tsv",
+        lfc_plot     = f"{VA}/lfc_concordance.png",
+        score_plot   = f"{VA}/tcga_signature_score.png",
+        nes_plot     = f"{VA}/hallmark_nes_concordance.png",
+    params:
+        fdr       = 0.05,
+        lfc       = 1,
+        min_count = 10,
+        sig_size  = 100,   # top N up and N down TCGA DEGs used for the signature score
+        seed      = 42,
+    threads: 4
+    log:
+        "logs/06_geo_validation.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/06_geo_validation.R"
+
+
+rule ancestry:
+    input:
+        geo_dds = "data/processed/geo_dds_fitted.rds",
+        se_full = OUT["se_full"],
+        tcga_de = f"{DE}/deseq2_all_genes.tsv",
+    output:
+        geo_table          = f"{AN}/geo_ancestry_tumor_effects.tsv",
+        geo_scatter        = f"{AN}/geo_ancestry_lfc_scatter.png",
+        geo_hallmark       = f"{AN}/geo_ancestry_hallmark_pairlevel.tsv",
+        geo_hallmark_plot  = f"{AN}/geo_ancestry_hallmark_pairlevel.png",
+        geo_pair_qc        = f"{AN}/geo_pair_qc.tsv",
+        tcga_sheet         = f"{AN}/tcga_race_sample_sheet.tsv",
+        tcga_table         = f"{AN}/tcga_race_deseq2.tsv",
+        tcga_mt            = f"{AN}/tcga_race_mt_pseudogene_hits.tsv",
+        tcga_volcano       = f"{AN}/tcga_race_volcano.png",
+        tcga_hallmark      = f"{AN}/tcga_race_hallmark.tsv",
+        tcga_hallmark_plot = f"{AN}/tcga_race_hallmark.png",
+        tcga_site_hallmark = f"{AN}/tcga_race_site_matched_hallmark.tsv",
+        tcga_site_plot     = f"{AN}/tcga_race_site_matched_nes.png",
+        summary            = f"{AN}/ancestry_summary.tsv",
+    params:
+        fdr          = 0.05,
+        lfc          = 1,
+        min_count    = 10,
+        min_per_site = 3,   # sites need >= this many Black AND White patients for the site-matched check
+        seed         = 42,
+    threads: 4
+    log:
+        "logs/07_ancestry.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/07_ancestry.R"
+
+
+rule report:
+    input:
+        qmd = "reports/report.qmd",
+        results = [
+            OUT["provenance"], OUT["sample_sheet"],
+            f"{QC}/qc_sample_flags.tsv", f"{QC}/pca_condition.png", f"{QC}/purity_marker_score.png",
+            f"{DE}/deseq2_all_genes.tsv", f"{DE}/sensitivity_summary.tsv", f"{DE}/purity_check.tsv",
+            f"{GS}/fgsea_hallmark.tsv", f"{GS}/hallmark_gsea_vs_ora.tsv",
+            f"{VA}/validation_summary.tsv",
+            f"{AN}/ancestry_summary.tsv", f"{AN}/tcga_race_site_matched_hallmark.tsv",
+        ],
+    output:
+        html  = "reports/report.html",
+        pages = "docs/index.html",   # copy for GitHub Pages (serve from /docs)
+    log:
+        "logs/08_report.log",
+    conda:
+        "envs/r-bioc.yaml"
+    shell:
+        "quarto render {input.qmd} --to html > {log} 2>&1 && "
+        "mkdir -p docs && cp {output.html} {output.pages}"

@@ -1,0 +1,260 @@
+---
+title: "Differential expression and pathway analysis in prostate cancer"
+subtitle: "TCGA-PRAD tumor vs matched normal, with independent validation and an exploratory ancestry analysis"
+author: "Kipchumba"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+    fig-align: center
+    code-fold: true
+    code-summary: "Show code"
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(data.table)
+  library(knitr)
+  library(yaml)
+})
+root <- normalizePath("..")
+f   <- function(...) file.path(root, ...)
+img <- function(path, width = "85%") knitr::include_graphics(f(path))
+rd  <- function(path) fread(f(path))
+metric <- function(tab, m) tab[metric == m, value]
+pct <- function(x, d = 0) paste0(round(100 * x, d), "%")
+fmt <- function(x) format(x, big.mark = ",")
+short <- function(x) gsub("_", " ", sub("^(HALLMARK|REACTOME)_", "", x))
+
+prov   <- yaml::read_yaml(f("data/processed/download_provenance.yaml"))
+sheet  <- rd("data/processed/sample_sheet_paired.tsv")
+flags  <- rd("results/qc/qc_sample_flags.tsv")
+de_all <- rd("results/de/deseq2_all_genes.tsv")
+de_sig <- rd("results/de/deseq2_significant.tsv")
+sens   <- rd("results/de/sensitivity_summary.tsv")
+pur    <- rd("results/de/purity_check.tsv")
+hall   <- rd("results/gsea/fgsea_hallmark.tsv")
+reac   <- rd("results/gsea/fgsea_reactome.tsv")
+conc   <- rd("results/gsea/hallmark_gsea_vs_ora.tsv")
+val    <- rd("results/validation/validation_summary.tsv")
+anc    <- rd("results/ancestry/ancestry_summary.tsv")
+race_h <- rd("results/ancestry/tcga_race_hallmark.tsv")
+site_h <- rd("results/ancestry/tcga_race_site_matched_hallmark.tsv")
+mt     <- rd("results/ancestry/tcga_race_mt_pseudogene_hits.tsv")
+geo_ph <- rd("results/ancestry/geo_ancestry_hallmark_pairlevel.tsv")
+race_s <- rd("results/ancestry/tcga_race_sample_sheet.tsv")
+hi_grade <- race_s[, .(p = mean(gleason_group == "GS8_10")), by = race]
+hg <- function(r) pct(hi_grade[race == r, p])
+n_black_pairs <- if ("race" %in% names(sheet))
+  sum(sheet[condition == "tumor"]$race == "black or african american", na.rm = TRUE) else NA
+
+n_pairs <- uniqueN(sheet$patient)
+n_up    <- sum(de_sig$direction == "up"); n_down <- sum(de_sig$direction == "down")
+h_sig   <- hall[padj < 0.05]
+n_flag  <- sum(flags$flagged)
+```
+
+# Summary {.unnumbered}
+
+- **Paired design.** `r n_pairs` TCGA-PRAD patients with both a primary tumor and adjacent normal sample (`r 2 * n_pairs` libraries; GDC data release `r prov$gdc_data_release`).
+- **Differential expression.** `r fmt(nrow(de_sig))` genes differ at FDR < 0.05 and ≥ 2-fold (`r fmt(n_up)` up, `r fmt(n_down)` down in tumor). The top genes are established prostate cancer markers (`r paste(head(de_sig$gene_name, 6), collapse = ", ")`).
+- **Pathways.** `r nrow(h_sig)` of 50 Hallmark sets are enriched: MYC targets, proliferation (E2F, G2M) and androgen response up; smooth-muscle, stromal and inflammatory programmes down.
+- **Robust to QC choices.** Excluding `r n_flag` borderline-purity tumors leaves fold changes almost unchanged (Spearman ρ = `r sens$spearman_log2FC_all`).
+- **Independent validation (GSE104131).** In `r metric(val, "complete_pairs")` high-grade pairs, `r pct(metric(val, "sign_agreement_tcga_DEGs"))` of TCGA DEGs change in the same direction, a TCGA-derived signature separates tumor from normal with AUC = `r metric(val, "signature_auc")`, and `r metric(val, "hallmark_replicated")` of `r nrow(h_sig)` Hallmark sets replicate.
+- **Ancestry (exploratory).** Tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to adjustment for tissue source site. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
+
+# Data and design
+
+| | Discovery | Validation |
+|---|---|---|
+| Cohort | TCGA-PRAD (GDC) | GEO GSE104131 |
+| Samples | `r n_pairs` tumor / matched normal pairs | `r metric(val, "complete_pairs")` pairs (`r metric(val, "pairs_AA")` African-American, `r metric(val, "pairs_EA")` European-American) |
+| Tumors | All Gleason grades | High grade (Gleason ≥ 4+3) |
+| Counts | GDC STAR counts (GENCODE v36), unstranded | NCBI-generated raw counts (GRCh38.p13) |
+| Model | DESeq2, `~ patient + condition` | DESeq2, `~ pair + condition` |
+
+All steps run as a Snakemake pipeline. Pairing keeps one aliquot per patient and sample type. Thresholds throughout: FDR < 0.05; DEG lists additionally require |log~2~FC| ≥ 1 on apeglm-shrunken estimates.
+
+# Quality control
+
+```{r qc-numbers}
+qc_genes <- nrow(de_all)
+```
+
+Genes were kept if they had ≥ 10 reads in at least `r n_pairs` samples (the size of each group), leaving `r fmt(qc_genes)` genes. After variance-stabilising transformation, the first two principal components separate tumor from normal. Neither tissue source site nor sequencing plate is associated with them, so no batch correction was applied.
+
+```{r fig-pca, fig.cap = "PCA of the 500 most variable genes. Grey lines join each patient's tumor and normal sample."}
+img("results/qc/pca_condition.png", "75%")
+```
+
+**Tumor purity.** `r n_flag` tumors sat nearer the normal cluster on the PCA. A marker score (tumor-up genes AMACR, PCA3, HPN, DLX1, TDRD1 minus basal-cell genes KRT5, KRT15, TP63, MYLK, CNN1) did not flag them. Published purity estimates, where available, placed them in the lowest quartile (`r paste(na.omit(round(pur[qc_flagged == TRUE]$paper_avgRNA_purity, 2)), collapse = ", ")` vs a median of `r round(median(pur$paper_avgRNA_purity, na.rm = TRUE), 2)` for all paired tumors). All pairs were kept for the main analysis, with a sensitivity analysis excluding them (Section 4.2).
+
+```{r fig-purity, fig.cap = "Marker-based purity check. Lines join pairs; dashed line is the 90th percentile of normals."}
+img("results/qc/purity_marker_score.png", "55%")
+```
+
+# Differential expression
+
+```{r de-numbers}
+n_any <- sum(de_all$padj < 0.05, na.rm = TRUE)
+```
+
+`r fmt(n_any)` genes differ at FDR < 0.05 (`r pct(n_any / nrow(de_all))` of those tested), which is expected with `r n_pairs` well-matched pairs. Requiring a 2-fold change gives `r fmt(nrow(de_sig))` DEGs. More genes fall than rise in tumors. That fits tumors replacing normal fibromuscular stroma and basal cells.
+
+```{r fig-volcano, fig.cap = "Volcano plot. Fold changes are apeglm-shrunken."}
+img("results/de/volcano.png", "80%")
+```
+
+```{r tab-top}
+top <- head(de_sig[order(padj)], 15)[, .(Gene = gene_name, Type = gene_type,
+         `log2FC (shrunk)` = round(log2FC_shrunk, 2), `Adjusted p` = signif(padj, 3))]
+kable(top, caption = "Top 15 DEGs by adjusted p-value")
+```
+
+The leading genes are among the best-validated prostate cancer markers: AMACR, PCA3, HPN, DLX1 and TDRD1, as well as the prostate-cancer-associated lncRNA PCSEAT. Five of these were also in the QC marker score. That is not circular, because the score was used only to flag samples, never to select them.
+
+```{r fig-heatmap, fig.cap = "Top 50 DEGs (VST, row-centred)."}
+img("results/de/top50_heatmap.png", "75%")
+```
+
+## Sensitivity to borderline-purity tumors
+
+Refitting without the `r n_flag` flagged pairs (`r sens$pairs_sensitivity` pairs) gives `r fmt(sens$sig_sensitivity)` DEGs versus `r fmt(sens$sig_main)` on matching thresholds. The two lists overlap with Jaccard = `r sens$jaccard`, all overlapping genes change in the same direction, and fold changes correlate at ρ = `r sens$spearman_log2FC_all`.
+
+```{r fig-sens, fig.cap = "Fold changes with and without the flagged pairs."}
+img("results/de/sensitivity_concordance.png", "55%")
+```
+
+# Pathway analysis
+
+Genes were ranked by the DESeq2 Wald statistic, keeping one Ensembl ID per symbol. fgsea then ran on MSigDB Hallmark and Reactome sets of 15–500 genes. Redundant Reactome pathways were collapsed with `collapsePathways`.
+
+```{r fig-hallmark, fig.cap = "Significant Hallmark sets (labels show adjusted p)."}
+img("results/gsea/hallmark_nes.png", "85%")
+```
+
+**Up in tumor:** `r paste(short(h_sig[NES > 0][order(-NES)]$pathway), collapse = ", ")`. MYC activation and androgen-receptor signalling are hallmark features of prostate adenocarcinoma, and the proliferation sets reflect a higher mitotic index.
+
+**Down in tumor:** `r paste(short(h_sig[NES < 0][order(NES)]$pathway), collapse = ", ")`. Most of these sets are dominated by smooth-muscle, fibroblast and immune genes. In bulk RNA-seq they largely reflect **tissue composition**: tumors contain less fibromuscular stroma than normal prostate. They are not evidence that tumor cells switch these programmes off. The Hallmark "EMT" set falls for the same reason, because it is mostly stromal genes such as collagens.
+
+```{r fig-reactome, fig.cap = "Top non-redundant Reactome pathways."}
+img("results/gsea/reactome_top_dotplot.png", "90%")
+```
+
+Of the `r nrow(h_sig)` significant Hallmark sets, `r sum(conc$agrees, na.rm = TRUE)` were also significant by over-representation analysis of the DEG lists. ORA only sees genes past the 2-fold cutoff. Proliferation genes typically move less than 2-fold but move together, so GSEA detects them and ORA misses them.
+
+# Independent validation (GSE104131)
+
+GSE104131 contains 16 high-grade tumor / adjacent-normal pairs (8 African-American, 8 European-American). Four libraries are absent from the NCBI count matrix, leaving `r metric(val, "complete_pairs")` complete pairs.
+
+```{r tab-val}
+vt <- data.table(
+  Check = c("TCGA DEGs measured in GEO", "Same direction in GEO", "Also FDR < 0.05 in GEO",
+            "Fold-change correlation, all shared genes", "TCGA signature AUC (tumor vs normal)",
+            "Pairs where tumor scores higher", "Hallmark NES correlation", "Hallmark sets replicated"),
+  Result = c(fmt(metric(val, "tcga_DEGs_in_geo")), pct(metric(val, "sign_agreement_tcga_DEGs")),
+             fmt(metric(val, "replicated_tcga_DEGs_geo_padj05")),
+             paste0("ρ = ", metric(val, "spearman_lfc_all")), metric(val, "signature_auc"),
+             paste0(round(metric(val, "signature_pairs_tumor_gt_normal") * metric(val, "complete_pairs")), " / ",
+                    metric(val, "complete_pairs")),
+             paste0("r = ", metric(val, "hallmark_nes_pearson")),
+             paste0(metric(val, "hallmark_replicated"), " / ", nrow(h_sig))))
+kable(vt, caption = "Replication of TCGA findings in GSE104131")
+```
+
+Direction agreement is far beyond chance (binomial p < 10^-16^). Many TCGA DEGs do not reach significance in GEO because 13 pairs give much less power, but they point the same way. The cohort is restricted to high-grade tumors, which makes this a stricter test than a grade-matched replication.
+
+```{r fig-val, fig.cap = "Left: gene-level fold changes. Right: TCGA signature score in GEO samples.", fig.show = "hold", out.width = "48%"}
+knitr::include_graphics(c(f("results/validation/lfc_concordance.png"),
+                          f("results/validation/tcga_signature_score.png")))
+```
+
+```{r fig-nes, fig.cap = "Hallmark NES in TCGA vs GSE104131."}
+img("results/validation/hallmark_nes_concordance.png", "65%")
+```
+
+# Exploratory ancestry analysis
+
+TCGA-PRAD has few patients of African ancestry. Only `r n_black_pairs` of the `r n_pairs` paired patients self-report as Black or African American, which is too few for a paired subgroup analysis. Two complementary analyses were therefore run. Both rely on **self-reported race or ethnicity, which is not genetic ancestry**.
+
+## Does the tumor effect differ by ancestry? (GSE104131)
+
+Pairs were nested within ancestry (7 AA, 6 EA). At gene level, `r metric(anc, "geo_interaction_genes")` genes had an ancestry-specific tumor effect. At pathway level, each patient was treated as one observation. For each pair and Hallmark set, the score is the mean tumor-minus-normal change of the set's genes, compared between AA and EA with an exact Wilcoxon test. **No set differed** (smallest raw p = `r signif(min(geo_ph$p_wilcox), 2)`).
+
+An earlier version ranked genes by the interaction statistic and ran pre-ranked GSEA. That flagged 41 of 50 sets, with p-values below 10^-20^. Pre-ranked GSEA treats genes as independent. With 13 patients, a few atypical pairs shift thousands of correlated genes together, so those p-values were far too small. The patient-level test replaces it. This cohort does not support or rule out ancestry-specific tumor biology. It is simply underpowered.
+
+```{r fig-geo-anc, fig.cap = "Per-pair Hallmark tumor effects for the eight lowest-p sets."}
+img("results/ancestry/geo_ancestry_hallmark_pairlevel.png", "95%")
+```
+
+## Tumors from Black vs White patients (TCGA)
+
+`r metric(anc, "tcga_tumors_black")` tumors from Black and `r metric(anc, "tcga_tumors_white")` from White patients were compared, adjusting for Gleason group and age. Grade differs markedly between the groups: `r hg("Black")` vs `r hg("White")` Gleason 8–10.
+
+**A mapping artifact.** Before filtering, the strongest "race" genes were mitochondrial pseudogenes (`r nrow(mt)` significant, `r sum(mt$log2FC > 0)` higher in Black patients). The likely cause is that African mitochondrial haplogroups differ from the European reference mitochondrial genome. Some mitochondrial reads then align to nuclear copies of mitochondrial DNA instead. These were removed, and DEG reporting was restricted to protein-coding and lncRNA genes.
+
+```{r fig-race, fig.cap = "Hallmark GSEA, Black vs White tumors.", out.width = "80%"}
+img("results/ancestry/tcga_race_hallmark.png", "80%")
+```
+
+```{r race-ifn}
+ifn <- site_h[grepl("INTERFERON|ALLOGRAFT|TNFA|INFLAMMATORY", pathway)][order(-NES_site)]
+kable(ifn[, .(Pathway = short(pathway), `NES (all sites)` = round(NES_main, 2), `padj` = signif(padj_main, 2),
+              `NES (site-matched)` = round(NES_site, 2), `padj ` = signif(padj_site, 2))],
+      caption = "Immune and interferon sets, main model vs site-matched model")
+```
+
+Interferon-α, interferon-γ and allograft-rejection sets are higher in tumors from Black patients. This agrees with earlier reports of an interferon and immune-inflammation signature in African-American prostate tumors (Wallace et al. 2008; Awasthi et al. 2021). Because Black patients come mostly from a few tissue source sites, race and site are confounded. Restricting to sites with ≥ 3 Black and ≥ 3 White patients (`r metric(anc, "site_matched_black")` vs `r metric(anc, "site_matched_white")`) and adding site to the model leaves the interferon result intact. TNFα/NF-κB and inflammatory-response sets also become significant. The stromal and metabolic sets lower in Black patients are less stable: overall NES correlation between the two models is r = `r metric(anc, "site_matched_nes_r")`.
+
+```{r fig-site, fig.cap = "Robustness of race-associated Hallmark NES to tissue source site."}
+img("results/ancestry/tcga_race_site_matched_nes.png", "60%")
+```
+
+Several top individual genes (e.g. TDO2, RBM44, MAEL, TRIM31) show large, consistent shifts. Shifts like these are often driven by inherited variants whose frequency differs between populations, not by tumor biology. Testing the same genes in normal tissue would distinguish the two, but needs more normal samples from Black patients than TCGA provides.
+
+# Limitations
+
+- **Bulk tissue.** Tumor-vs-normal differences mix changes in cell state with changes in cell-type composition, especially stromal loss. Deconvolution would help separate them.
+- **Purity.** Published purity estimates exist for only some samples. All pairs were kept, and results were robust to excluding the borderline ones.
+- **Validation cohort.** GSE104131 is small (13 pairs) and high-grade only, with counts from a different pipeline and annotation (Entrez IDs mapped to symbols).
+- **Ancestry.** Self-reported race is not genetic ancestry. African-ancestry samples are few, and race is confounded with collection site and grade in TCGA. Tumor-only comparisons cannot show tumor-vs-normal differences. All ancestry results are exploratory.
+- **Multiple testing.** FDR is controlled within each analysis, not across the whole project.
+
+# Reproducibility
+
+```{bash, eval = FALSE, echo = TRUE}
+micromamba create -n prad-dge -f workflow/envs/r-bioc.yaml
+micromamba activate prad-dge
+snakemake --cores 4
+```
+
+- GDC data release: `r prov$gdc_data_release`, downloaded `r substr(prov$date_downloaded, 1, 10)` with TCGAbiolinks `r prov$tcgabiolinks`.
+- GSE104131 counts and series matrix were downloaded manually from GEO into `data/raw/geo/`; see the README.
+- Every number in this report is read from pipeline outputs at render time.
+
+```{r session}
+sess <- f("results/de/deseq2_all_genes_sessionInfo.txt")
+if (file.exists(sess)) cat("R session for the DESeq2 step:", readLines(sess)[1:3], sep = "\n")
+```
+
+# References {.unnumbered}
+
+1. Cancer Genome Atlas Research Network. The molecular taxonomy of primary prostate cancer. *Cell* 2015;163:1011–1025.
+2. Colaprico A, et al. TCGAbiolinks: an R/Bioconductor package for integrative analysis of TCGA data. *Nucleic Acids Res* 2016;44:e71.
+3. Love MI, Huber W, Anders S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biol* 2014;15:550.
+4. Zhu A, Ibrahim JG, Love MI. Heavy-tailed prior distributions for sequence count data: removing the noise and preserving large differences. *Bioinformatics* 2019;35:2084–2092.
+5. Korotkevich G, et al. Fast gene set enrichment analysis. *bioRxiv* 2021. doi:10.1101/060012.
+6. Liberzon A, et al. The Molecular Signatures Database Hallmark gene set collection. *Cell Syst* 2015;1:417–425.
+7. Wallace TA, et al. Tumor immunobiological differences in prostate cancer between African-American and European-American men. *Cancer Res* 2008;68:927–936.
+8. Awasthi S, et al. Comparative genomics reveals distinct immune-oncologic pathways in African American men with prostate cancer. *Clin Cancer Res* 2021;27:320–329.
+9. Cohen T, et al. Ancient out-of-Africa mitochondrial DNA variants associate with distinct mitochondrial gene expression patterns. *PLoS Genet* 2016;12:e1006407.
+10. GEO accession GSE104131: RNA sequencing of prostate cancer and normal tissue from African Americans and European Americans.
