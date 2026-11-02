@@ -1,0 +1,105 @@
+barcode	patient	sample_code	vial	analyte	plate	tss	condition	race	ethnicity	age_at_diagnosis	primary_gleason_grade	secondary_gleason_grade	ajcc_pathologic_t	paper_Reviewed_Gleason	vital_status
+TCGA-CH-5761-11A-01R-1580-07	TCGA-CH-5761	11	A	R	1580	CH	normal	white	not hispanic or latino	22433	Pattern 5	Pattern 4	T3b	NA	Alive
+TCGA-CH-5761-01A-11R-1580-07	TCGA-CH-5761	01	A	R	1580	CH	tumor	white	not hispanic or latino	22433	Pattern 5	Pattern 4	T3b	5+5	Alive
+TCGA-CH-5767-11B-01R-1789-07	TCGA-CH-5767	11	B	R	1789	CH	normal	white	not hispanic or latino	24287	Pattern 4	Pattern 3	T2c	NA	Alive
+TCGA-CH-5767-01A-11R-1789-07	TCGA-CH-5767	01	A	R	1789	CH	tumor	white	not hispanic or latino	24287	Pattern 4	Pattern 3	T2c	3+3	Alive
+TCGA-CH-5768-11A-01R-1580-07	TCGA-CH-5768	11	A	R	1580	CH	normal	white	not hispanic or latino	26480	Pattern 2	Pattern 4	T3a	NA	Alive
+TCGA-CH-5768-01A-11R-1580-07	TCGA-CH-5768	01	A	R	1580	CH	tumor	white	not hispanic or latino	26480	Pattern 2	Pattern 4	T3a	3+3	Alive
+TCGA-CH-5769-11A-01R-1580-07	TCGA-CH-5769	11	A	R	1580	CH	normal	white	not hispanic or latino	17807	Pattern 5	Pattern 4	T3b	NA	Alive
+TCGA-CH-5769-01A-11R-1580-07	TCGA-CH-5769	01	A	R	1580	CH	tumor	white	not hispanic or latino	17807	Pattern 5	Pattern 4	T3b	4+5	Alive
+TCGA-EJ-7115-11A-01R-2118-07	TCGA-EJ-7115	11	A	R	2118	EJ	normal	white	not hispanic or latino	23986	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7115-01A-11R-2118-07	TCGA-EJ-7115	01	A	R	2118	EJ	tumor	white	not hispanic or latino	23986	Pattern 4	Pattern 3	T3a	4+4	Alive
+TCGA-EJ-7123-11A-01R-1965-07	TCGA-EJ-7123	11	A	R	1965	EJ	normal	white	not hispanic or latino	21741	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7123-01A-11R-1965-07	TCGA-EJ-7123	01	A	R	1965	EJ	tumor	white	not hispanic or latino	21741	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-EJ-7125-11A-01R-1965-07	TCGA-EJ-7125	11	A	R	1965	EJ	normal	white	not hispanic or latino	16425	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7125-01A-11R-1965-07	TCGA-EJ-7125	01	A	R	1965	EJ	tumor	white	not hispanic or latino	16425	Pattern 3	Pattern 4	T2c	3+3	Alive
+TCGA-EJ-7314-11A-01R-2118-07	TCGA-EJ-7314	11	A	R	2118	EJ	normal	white	not hispanic or latino	22766	Pattern 4	Pattern 3	T3b	NA	Alive
+TCGA-EJ-7314-01A-31R-2118-07	TCGA-EJ-7314	01	A	R	2118	EJ	tumor	white	not hispanic or latino	22766	Pattern 4	Pattern 3	T3b	4+3	Alive
+TCGA-EJ-7315-11A-01R-2118-07	TCGA-EJ-7315	11	A	R	2118	EJ	normal	white	not hispanic or latino	25154	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7315-01A-31R-2118-07	TCGA-EJ-7315	01	A	R	2118	EJ	tumor	white	not hispanic or latino	25154	Pattern 4	Pattern 3	T3a	4+3	Alive
+TCGA-EJ-7317-11A-01R-2118-07	TCGA-EJ-7317	11	A	R	2118	EJ	normal	white	not hispanic or latino	26064	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7317-01A-31R-2118-07	TCGA-EJ-7317	01	A	R	2118	EJ	tumor	white	not hispanic or latino	26064	Pattern 3	Pattern 4	T2c	4+3	Alive
+TCGA-EJ-7321-11A-01R-2263-07	TCGA-EJ-7321	11	A	R	2263	EJ	normal	black or african american	not hispanic or latino	21108	Pattern 3	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7321-01A-31R-2263-07	TCGA-EJ-7321	01	A	R	2263	EJ	tumor	black or african american	not hispanic or latino	21108	Pattern 3	Pattern 3	T3a	3+3	Alive
+TCGA-EJ-7327-11A-01R-2118-07	TCGA-EJ-7327	11	A	R	2118	EJ	normal	white	not hispanic or latino	22475	Pattern 3	Pattern 4	T3b	NA	Alive
+TCGA-EJ-7327-01A-11R-2118-07	TCGA-EJ-7327	01	A	R	2118	EJ	tumor	white	not hispanic or latino	22475	Pattern 3	Pattern 4	T3b	4+3	Alive
+TCGA-EJ-7328-11A-01R-2118-07	TCGA-EJ-7328	11	A	R	2118	EJ	normal	white	not hispanic or latino	25756	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7328-01A-31R-2118-07	TCGA-EJ-7328	01	A	R	2118	EJ	tumor	white	not hispanic or latino	25756	Pattern 4	Pattern 3	T3a	4+3	Alive
+TCGA-EJ-7330-11A-01R-2118-07	TCGA-EJ-7330	11	A	R	2118	EJ	normal	white	not hispanic or latino	25050	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7330-01A-11R-2118-07	TCGA-EJ-7330	01	A	R	2118	EJ	tumor	white	not hispanic or latino	25050	Pattern 4	Pattern 3	T3a	4+4	Alive
+TCGA-EJ-7331-11A-01R-2118-07	TCGA-EJ-7331	11	A	R	2118	EJ	normal	white	not hispanic or latino	23458	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7331-01A-11R-2118-07	TCGA-EJ-7331	01	A	R	2118	EJ	tumor	white	not hispanic or latino	23458	Pattern 3	Pattern 4	T2c	4+3	Alive
+TCGA-EJ-7781-11A-01R-2118-07	TCGA-EJ-7781	11	A	R	2118	EJ	normal	white	not hispanic or latino	23937	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7781-01A-11R-2118-07	TCGA-EJ-7781	01	A	R	2118	EJ	tumor	white	not hispanic or latino	23937	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-EJ-7782-11A-01R-2118-07	TCGA-EJ-7782	11	A	R	2118	EJ	normal	black or african american	not hispanic or latino	25965	Pattern 4	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7782-01A-11R-2118-07	TCGA-EJ-7782	01	A	R	2118	EJ	tumor	black or african american	not hispanic or latino	25965	Pattern 4	Pattern 4	T2c	4+5	Alive
+TCGA-EJ-7783-11A-01R-2118-07	TCGA-EJ-7783	11	A	R	2118	EJ	normal	white	not hispanic or latino	25600	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7783-01A-11R-2118-07	TCGA-EJ-7783	01	A	R	2118	EJ	tumor	white	not hispanic or latino	25600	Pattern 4	Pattern 3	T3a	4+4	Alive
+TCGA-EJ-7784-11A-01R-2118-07	TCGA-EJ-7784	11	A	R	2118	EJ	normal	white	not hispanic or latino	23183	Pattern 4	Pattern 3	T2c	NA	Alive
+TCGA-EJ-7784-01A-11R-2118-07	TCGA-EJ-7784	01	A	R	2118	EJ	tumor	white	not hispanic or latino	23183	Pattern 4	Pattern 3	T2c	4+3	Alive
+TCGA-EJ-7785-11A-01R-2118-07	TCGA-EJ-7785	11	A	R	2118	EJ	normal	white	not hispanic or latino	19939	Pattern 3	Pattern 4	T3a	NA	Alive
+TCGA-EJ-7785-01A-11R-2118-07	TCGA-EJ-7785	01	A	R	2118	EJ	tumor	white	not hispanic or latino	19939	Pattern 3	Pattern 4	T3a	3+3	Alive
+TCGA-EJ-7786-11A-01R-2118-07	TCGA-EJ-7786	11	A	R	2118	EJ	normal	white	not hispanic or latino	22793	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7786-01A-11R-2118-07	TCGA-EJ-7786	01	A	R	2118	EJ	tumor	white	not hispanic or latino	22793	Pattern 3	Pattern 4	T2c	3+3	Alive
+TCGA-EJ-7789-11A-01R-2118-07	TCGA-EJ-7789	11	A	R	2118	EJ	normal	black or african american	not hispanic or latino	24107	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-7789-01A-11R-2118-07	TCGA-EJ-7789	01	A	R	2118	EJ	tumor	black or african american	not hispanic or latino	24107	Pattern 4	Pattern 3	T3a	4+5	Alive
+TCGA-EJ-7792-11A-01R-2118-07	TCGA-EJ-7792	11	A	R	2118	EJ	normal	white	not hispanic or latino	19454	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7792-01A-11R-2118-07	TCGA-EJ-7792	01	A	R	2118	EJ	tumor	white	not hispanic or latino	19454	Pattern 3	Pattern 4	T2c	3+3	Alive
+TCGA-EJ-7793-11A-01R-2263-07	TCGA-EJ-7793	11	A	R	2263	EJ	normal	white	not hispanic or latino	17982	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7793-01A-31R-2263-07	TCGA-EJ-7793	01	A	R	2263	EJ	tumor	white	not hispanic or latino	17982	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-EJ-7794-11A-01R-2118-07	TCGA-EJ-7794	11	A	R	2118	EJ	normal	white	not hispanic or latino	24478	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7794-01A-11R-2118-07	TCGA-EJ-7794	01	A	R	2118	EJ	tumor	white	not hispanic or latino	24478	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-EJ-7797-11A-01R-2263-07	TCGA-EJ-7797	11	A	R	2263	EJ	normal	white	not hispanic or latino	19616	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-EJ-7797-01A-11R-2263-07	TCGA-EJ-7797	01	A	R	2263	EJ	tumor	white	not hispanic or latino	19616	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-EJ-A8FO-11A-11R-A36G-07	TCGA-EJ-A8FO	11	A	R	A36G	EJ	normal	Unknown	Unknown	18875	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-EJ-A8FO-01A-21R-A36G-07	TCGA-EJ-A8FO	01	A	R	A36G	EJ	tumor	Unknown	Unknown	18875	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-G9-6333-11A-01R-1965-07	TCGA-G9-6333	11	A	R	1965	G9	normal	white	not hispanic or latino	24249	Pattern 4	Pattern 3	T2c	NA	Alive
+TCGA-G9-6333-01A-12R-1965-07	TCGA-G9-6333	01	A	R	1965	G9	tumor	white	not hispanic or latino	24249	Pattern 4	Pattern 3	T2c	4+3	Alive
+TCGA-G9-6342-11A-02R-1965-07	TCGA-G9-6342	11	A	R	1965	G9	normal	white	not hispanic or latino	22472	Pattern 3	Pattern 3	T3a	NA	Alive
+TCGA-G9-6342-01A-11R-1965-07	TCGA-G9-6342	01	A	R	1965	G9	tumor	white	not hispanic or latino	22472	Pattern 3	Pattern 3	T3a	4+3	Alive
+TCGA-G9-6348-11A-01R-1789-07	TCGA-G9-6348	11	A	R	1789	G9	normal	white	not hispanic or latino	24936	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-G9-6348-01A-11R-1789-07	TCGA-G9-6348	01	A	R	1789	G9	tumor	white	not hispanic or latino	24936	Pattern 3	Pattern 4	T2c	4+3	Alive
+TCGA-G9-6351-11A-01R-1965-07	TCGA-G9-6351	11	A	R	1965	G9	normal	white	not hispanic or latino	18723	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-G9-6351-01A-21R-1965-07	TCGA-G9-6351	01	A	R	1965	G9	tumor	white	not hispanic or latino	18723	Pattern 3	Pattern 4	T2c	3+3	Alive
+TCGA-G9-6356-11A-01R-1789-07	TCGA-G9-6356	11	A	R	1789	G9	normal	white	not hispanic or latino	22010	Pattern 4	Pattern 5	T3b	NA	Alive
+TCGA-G9-6356-01A-11R-1789-07	TCGA-G9-6356	01	A	R	1789	G9	tumor	white	not hispanic or latino	22010	Pattern 4	Pattern 5	T3b	3+4	Alive
+TCGA-G9-6362-11A-01R-1789-07	TCGA-G9-6362	11	A	R	1789	G9	normal	white	not hispanic or latino	21149	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-G9-6362-01A-11R-1789-07	TCGA-G9-6362	01	A	R	1789	G9	tumor	white	not hispanic or latino	21149	Pattern 4	Pattern 3	T3a	NA	Alive
+TCGA-G9-6363-11A-01R-1789-07	TCGA-G9-6363	11	A	R	1789	G9	normal	white	not hispanic or latino	23480	Pattern 4	Pattern 3	T4	NA	Alive
+TCGA-G9-6363-01A-21R-1789-07	TCGA-G9-6363	01	A	R	1789	G9	tumor	white	not hispanic or latino	23480	Pattern 4	Pattern 3	T4	4+3	Alive
+TCGA-G9-6365-11A-01R-1789-07	TCGA-G9-6365	11	A	R	1789	G9	normal	white	not hispanic or latino	26207	Pattern 3	Pattern 4	T4	NA	Alive
+TCGA-G9-6365-01A-11R-1789-07	TCGA-G9-6365	01	A	R	1789	G9	tumor	white	not hispanic or latino	26207	Pattern 3	Pattern 4	T4	3+4	Alive
+TCGA-G9-6384-11A-01R-1858-07	TCGA-G9-6384	11	A	R	1858	G9	normal	white	not hispanic or latino	19620	Pattern 3	Pattern 4	T3a	NA	Alive
+TCGA-G9-6384-01A-11R-1789-07	TCGA-G9-6384	01	A	R	1789	G9	tumor	white	not hispanic or latino	19620	Pattern 3	Pattern 4	T3a	3+4	Alive
+TCGA-G9-6496-11A-01R-1789-07	TCGA-G9-6496	11	A	R	1789	G9	normal	white	not hispanic or latino	22602	Pattern 4	Pattern 3	T2c	NA	Alive
+TCGA-G9-6496-01A-11R-1789-07	TCGA-G9-6496	01	A	R	1789	G9	tumor	white	not hispanic or latino	22602	Pattern 4	Pattern 3	T2c	NA	Alive
+TCGA-G9-6499-11A-02R-1965-07	TCGA-G9-6499	11	A	R	1965	G9	normal	white	not hispanic or latino	24388	Pattern 4	Pattern 5	T3a	NA	Alive
+TCGA-G9-6499-01A-12R-1965-07	TCGA-G9-6499	01	A	R	1965	G9	tumor	white	not hispanic or latino	24388	Pattern 4	Pattern 5	T3a	3+4	Alive
+TCGA-HC-7211-11A-01R-2118-07	TCGA-HC-7211	11	A	R	2118	HC	normal	white	not hispanic or latino	22768	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7211-01A-11R-2118-07	TCGA-HC-7211	01	A	R	2118	HC	tumor	white	not hispanic or latino	22768	Pattern 3	Pattern 4	T2c	4+5	Alive
+TCGA-HC-7737-11A-02R-2118-07	TCGA-HC-7737	11	A	R	2118	HC	normal	black or african american	not reported	20122	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7737-01A-11R-2118-07	TCGA-HC-7737	01	A	R	2118	HC	tumor	black or african american	not reported	20122	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-HC-7738-11A-01R-2118-07	TCGA-HC-7738	11	A	R	2118	HC	normal	white	not hispanic or latino	21195	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7738-01A-11R-2118-07	TCGA-HC-7738	01	A	R	2118	HC	tumor	white	not hispanic or latino	21195	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7740-11A-01R-2118-07	TCGA-HC-7740	11	A	R	2118	HC	normal	white	not hispanic or latino	21883	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7740-01A-11R-2118-07	TCGA-HC-7740	01	A	R	2118	HC	tumor	white	not hispanic or latino	21883	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-HC-7742-11A-01R-2118-07	TCGA-HC-7742	11	A	R	2118	HC	normal	white	not hispanic or latino	21323	Pattern 3	Pattern 4	T3a	NA	Alive
+TCGA-HC-7742-01A-11R-2118-07	TCGA-HC-7742	01	A	R	2118	HC	tumor	white	not hispanic or latino	21323	Pattern 3	Pattern 4	T3a	4+4	Alive
+TCGA-HC-7745-11A-01R-2118-07	TCGA-HC-7745	11	A	R	2118	HC	normal	white	not hispanic or latino	24078	Pattern 4	Pattern 3	T3b	NA	Alive
+TCGA-HC-7745-01A-11R-2118-07	TCGA-HC-7745	01	A	R	2118	HC	tumor	white	not hispanic or latino	24078	Pattern 4	Pattern 3	T3b	NA	Alive
+TCGA-HC-7747-11A-01R-2118-07	TCGA-HC-7747	11	A	R	2118	HC	normal	white	not hispanic or latino	19188	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7747-01A-11R-2118-07	TCGA-HC-7747	01	A	R	2118	HC	tumor	white	not hispanic or latino	19188	Pattern 3	Pattern 4	T2c	3+4	Alive
+TCGA-HC-7752-11A-01R-2118-07	TCGA-HC-7752	11	A	R	2118	HC	normal	white	not hispanic or latino	22366	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7752-01A-11R-2118-07	TCGA-HC-7752	01	A	R	2118	HC	tumor	white	not hispanic or latino	22366	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-7819-11A-01R-2118-07	TCGA-HC-7819	11	A	R	2118	HC	normal	white	not hispanic or latino	19663	Pattern 4	Pattern 4	T2c	NA	Alive
+TCGA-HC-7819-01A-11R-2118-07	TCGA-HC-7819	01	A	R	2118	HC	tumor	white	not hispanic or latino	19663	Pattern 4	Pattern 4	T2c	NA	Alive
+TCGA-HC-8258-11A-01R-2263-07	TCGA-HC-8258	11	A	R	2263	HC	normal	black or african american	not hispanic or latino	20703	Pattern 3	Pattern 3	T2c	NA	Alive
+TCGA-HC-8258-01A-11R-2263-07	TCGA-HC-8258	01	A	R	2263	HC	tumor	black or african american	not hispanic or latino	20703	Pattern 3	Pattern 3	T2c	3+3	Alive
+TCGA-HC-8259-11A-01R-2263-07	TCGA-HC-8259	11	A	R	2263	HC	normal	black or african american	not hispanic or latino	18309	Pattern 3	Pattern 3	T2a	NA	Alive
+TCGA-HC-8259-01A-11R-2263-07	TCGA-HC-8259	01	A	R	2263	HC	tumor	black or african american	not hispanic or latino	18309	Pattern 3	Pattern 3	T2a	NA	Alive
+TCGA-HC-8260-11A-01R-2263-07	TCGA-HC-8260	11	A	R	2263	HC	normal	black or african american	not hispanic or latino	15884	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-HC-8260-01A-11R-2263-07	TCGA-HC-8260	01	A	R	2263	HC	tumor	black or african american	not hispanic or latino	15884	Pattern 3	Pattern 4	T2c	3+3	Alive
+TCGA-HC-8262-11A-01R-2263-07	TCGA-HC-8262	11	A	R	2263	HC	normal	white	not hispanic or latino	20946	Pattern 4	Pattern 4	T2c	NA	Alive
+TCGA-HC-8262-01A-11R-2263-07	TCGA-HC-8262	01	A	R	2263	HC	tumor	white	not hispanic or latino	20946	Pattern 4	Pattern 4	T2c	3+4	Alive
+TCGA-J4-A83J-11A-11R-A36G-07	TCGA-J4-A83J	11	A	R	A36G	J4	normal	white	not hispanic or latino	24960	Pattern 3	Pattern 4	T2c	NA	Alive
+TCGA-J4-A83J-01A-11R-A36G-07	TCGA-J4-A83J	01	A	R	A36G	J4	tumor	white	not hispanic or latino	24960	Pattern 3	Pattern 4	T2c	NA	Alive

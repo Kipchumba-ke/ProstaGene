@@ -1,0 +1,12 @@
+# Top-level environment: workflow manager + report renderer.
+# R/Bioconductor packages live in workflow/envs/r-bioc.yaml and are
+# created automatically by `snakemake --use-conda`.
+name: prad-pipeline
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python =3.12
+  - snakemake >=8
+  - quarto

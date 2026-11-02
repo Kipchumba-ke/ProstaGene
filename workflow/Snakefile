@@ -1,0 +1,96 @@
+# ---------------------------------------------------------------
+# TCGA-PRAD tumor vs matched normal: DGE + pathway analysis
+# ---------------------------------------------------------------
+configfile: "config/config.yaml"
+
+OUT = config["outputs"]
+QC  = "results/qc"
+DE  = "results/de"
+
+rule all:
+    input:
+        OUT["se_paired"],
+        OUT["sample_sheet"],
+        f"{QC}/qc_sample_flags.tsv",
+        f"{DE}/deseq2_all_genes.tsv",
+        f"{DE}/sensitivity_summary.tsv",
+        # Later milestones will add: GSEA,
+        # GEO validation, and the rendered Quarto report.
+
+
+rule download_tcga:
+    output:
+        se_full    = OUT["se_full"],
+        manifest   = OUT["manifest"],
+        provenance = OUT["provenance"],
+    log:
+        "logs/01_download_tcga.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/01_download_tcga.R"
+
+
+rule build_paired_set:
+    input:
+        se_full = OUT["se_full"],
+    output:
+        se_paired    = OUT["se_paired"],
+        sample_sheet = OUT["sample_sheet"],
+    log:
+        "logs/02_build_paired_set.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/02_build_paired_set.R"
+
+
+rule qc:
+    input:
+        se_paired = OUT["se_paired"],
+    output:
+        dds           = "data/processed/prad_dds_filtered.rds",
+        vsd           = "data/processed/prad_vst.rds",
+        flags         = f"{QC}/qc_sample_flags.tsv",
+        libsize       = f"{QC}/library_sizes.png",
+        pca_condition = f"{QC}/pca_condition.png",
+        pca_tss       = f"{QC}/pca_tss.png",
+        pca_plate     = f"{QC}/pca_plate.png",
+        heatmap       = f"{QC}/sample_distance_heatmap.png",
+        markers       = f"{QC}/purity_marker_score.png",
+    params:
+        min_count   = 10,    # min reads for a gene to count as expressed in a sample
+        n_top_genes = 500,   # most variable genes used for PCA
+    log:
+        "logs/03_qc.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/03_qc.R"
+
+
+rule deseq2:
+    input:
+        dds       = "data/processed/prad_dds_filtered.rds",
+        flags     = f"{QC}/qc_sample_flags.tsv",
+        se_paired = OUT["se_paired"],
+    output:
+        dds_fit      = "data/processed/prad_dds_fitted.rds",
+        table_all    = f"{DE}/deseq2_all_genes.tsv",
+        table_sig    = f"{DE}/deseq2_significant.tsv",
+        volcano      = f"{DE}/volcano.png",
+        ma           = f"{DE}/ma_plot.png",
+        heatmap      = f"{DE}/top50_heatmap.png",
+        sens_plot    = f"{DE}/sensitivity_concordance.png",
+        sens_summary = f"{DE}/sensitivity_summary.tsv",
+        purity       = f"{DE}/purity_check.tsv",
+    params:
+        fdr = 0.05,   # adjusted p-value cutoff
+        lfc = 1,      # |log2FC| cutoff (2-fold) for the DEG list
+    threads: 4
+    log:
+        "logs/04_deseq2.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/04_deseq2.R"

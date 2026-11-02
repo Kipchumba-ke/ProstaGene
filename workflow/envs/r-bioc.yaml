@@ -1,0 +1,23 @@
+name: prad-dge
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python =3.12 
+  - r-base >=4.4
+  - r-yaml
+  - r-tidyverse
+  - r-pheatmap
+  - r-ggrepel
+  - r-msigdbr
+  - bioconductor-tcgabiolinks
+  - bioconductor-summarizedexperiment
+  - bioconductor-deseq2
+  - bioconductor-apeglm
+  - bioconductor-fgsea
+  - bioconductor-clusterprofiler
+  - bioconductor-reactomepa
+  - bioconductor-org.hs.eg.db
+  - bioconductor-geoquery
+  - bioconductor-enhancedvolcano

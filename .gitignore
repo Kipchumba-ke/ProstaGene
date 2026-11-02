@@ -1,0 +1,39 @@
+# ---- Data: large and re-downloadable from GDC ----
+data/raw/
+GDCdata/
+MANIFEST.txt
+*.rds
+*.RData
+*.rda
+
+# ---- Snakemake ----
+.snakemake/
+logs/
+
+# ---- R / RStudio ----
+.Rhistory
+.Rapp.history
+.Rproj.user/
+*.Rproj
+.Ruserdata
+
+# ---- Quarto report build output ----
+/.quarto/
+reports/*_files/
+reports/*.html
+reports/*.pdf
+
+# ---- Python (Snakemake helpers, if any) ----
+__pycache__/
+*.pyc
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- Local environments and secrets ----
+.env
+.Renviron

@@ -1,0 +1,10 @@
+date_downloaded: 2026-11-02 12:41:28.416565
+gdc_data_release: Data Release 46.0 - August 10, 2026
+project: TCGA-PRAD
+workflow_type: STAR - Counts
+n_files: 553
+n_by_sample_type:
+  Primary Tumor: 501
+  Solid Tissue Normal: 52
+tcgabiolinks: 2.38.0
+r_version: R version 4.5.3 (2026-03-11)

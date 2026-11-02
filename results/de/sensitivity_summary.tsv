@@ -1,0 +1,2 @@
+pairs_main	pairs_sensitivity	sig_main	sig_sensitivity	sig_both	jaccard	same_direction_in_overlap	spearman_log2FC_all
+52	48	2480	2533	2333	0.871	1	0.993

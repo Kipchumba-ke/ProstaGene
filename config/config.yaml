@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------
+# TCGA-PRAD tumor vs matched normal — pipeline configuration
+# ---------------------------------------------------------------
+
+project: "TCGA-PRAD"
+
+gdc:
+  data_category: "Transcriptome Profiling"
+  data_type: "Gene Expression Quantification"
+  workflow_type: "STAR - Counts"        # GDC harmonized (GENCODE v36) STAR counts
+  sample_types:
+    - "Primary Tumor"                   # barcode sample code 01
+    - "Solid Tissue Normal"             # barcode sample code 11
+  download_dir: "data/raw/GDCdata"
+  files_per_chunk: 20                   # lower this if downloads time out on a slow link
+
+# Which count column from the STAR-Counts files to use for DESeq2.
+# TCGA RNA-seq libraries are unstranded, so "unstranded" is correct.
+count_assay: "unstranded"
+
+# When a patient has more than one aliquot of the same sample type,
+# keep one: prefer analyte in this order, then the highest plate ID.
+analyte_priority: ["H", "R", "T"]
+
+outputs:
+  se_full: "data/processed/prad_se_full.rds"
+  se_paired: "data/processed/prad_se_paired.rds"
+  sample_sheet: "data/processed/sample_sheet_paired.tsv"
+  manifest: "data/processed/gdc_manifest.tsv"
+  provenance: "data/processed/download_provenance.yaml"
