@@ -73,9 +73,25 @@ cox    <- rd("results/survival/cox_results.tsv")
 mval   <- function(tab, m) { v <- tab[metric == m, value]; suppressWarnings(if (!is.na(as.numeric(v))) as.numeric(v) else v) }
 ifn_a  <- dc_ra[pathway == "HALLMARK_INTERFERON_ALPHA_RESPONSE"]
 ifn_g  <- dc_ra[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]
-ifn_survives <- isTRUE(ifn_g$padj_adj < 0.05 & ifn_g$NES_adj > 0) || isTRUE(ifn_a$padj_adj < 0.05 & ifn_a$NES_adj > 0)
+sig_up <- function(nes, padj) isTRUE(padj < 0.05 & nes > 0)
+ifn_est <- sig_up(ifn_g$NES_est, ifn_g$padj_est) || sig_up(ifn_a$NES_est, ifn_a$padj_est)
+ifn_mcp <- sig_up(ifn_g$NES_mcp, ifn_g$padj_mcp) || sig_up(ifn_a$NES_mcp, ifn_a$padj_mcp)
+ifn_text <- if (ifn_est && ifn_mcp) {
+  "survives adjustment for immune and stromal content by both methods"
+} else if (ifn_mcp) {
+  "survives adjustment for lineage-based T-cell, B-cell and fibroblast scores (MCP-counter) but not for ESTIMATE scores, whose immune signature shares genes with the interferon sets"
+} else if (ifn_est) {
+  "survives the ESTIMATE adjustment but not adjustment for T-cell, B-cell and fibroblast content (MCP-counter)"
+} else {
+  "does not survive adjustment for immune and stromal content by either method, so it cannot be separated from differences in immune-cell content"
+}
+core   <- dc_ah[class == "robust to composition" & class_full == "robust to composition"][order(-NES_main)]
 cox_adj <- cox[model == "adjusted"][order(p)]
+cox_uni <- cox[model == "univariable"][order(p)]
 n_cox_sig <- sum(cox_adj$padj < 0.05)
+uni_sig <- cox_uni[padj < 0.05]
+best_gain <- cox_adj[which.max(c_gain_vs_clinical)]
+hr_txt <- function(d) paste0(d$score, " (HR ", round(d$HR_per_SD, 2), " per SD, adjusted p = ", signif(d$padj, 2), ")", collapse = "; ")
 ```
 
 # Summary {.unnumbered}
@@ -86,8 +102,8 @@ n_cox_sig <- sum(cox_adj$padj < 0.05)
 - **Robust to QC choices.** Excluding `r n_flag` borderline-purity tumors leaves fold changes almost unchanged (Spearman ρ = `r sens$spearman_log2FC_all`).
 - **Independent validation (GSE104131).** In `r metric(val, "complete_pairs")` high-grade pairs, `r pct(metric(val, "sign_agreement_tcga_DEGs"))` of TCGA DEGs change in the same direction, a TCGA-derived signature separates tumor from normal with AUC = `r metric(val, "signature_auc")`, and `r metric(val, "hallmark_replicated")` of `r nrow(h_sig)` Hallmark sets replicate.
 - **Ancestry (exploratory).** Tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to adjustment for tissue source site. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
-- **Tissue composition.** After adjusting the paired model for ESTIMATE stromal and immune scores, `r mval(dcs, "hallmark_robust")` Hallmark sets remain significant in the same direction and `r mval(dcs, "hallmark_composition_sensitive")` lose significance, separating tumor-cell programmes from composition effects. The interferon difference between Black and White patients' tumors `r if (ifn_survives) "survives" else "does not survive"` adjustment for stromal and immune content.
-- **Progression.** In `r mval(svs, "cox_complete_cases")` tumors with `r mval(svs, "cox_events")` progression events, `r n_cox_sig` of `r nrow(cox_adj)` expression scores are associated with progression-free interval after adjusting for Gleason group, T stage and age (FDR < 0.05).
+- **Tissue composition.** Tumors contain far less smooth muscle and basal epithelium than matched normal tissue. `r nrow(core)` Hallmark sets stay significant in the same direction under every composition adjustment, the strongest candidates for tumor-cell programmes (`r paste(head(short(core[NES_main > 0]$pathway), 6), collapse = ", ")` among those up). The interferon difference between Black and White patients' tumors `r ifn_text`.
+- **Progression.** In `r mval(svs, "cox_complete_cases")` tumors with `r mval(svs, "cox_events")` progression events, `r if (n_cox_sig == 0) paste0("no expression score was associated with progression-free interval once Gleason group, T stage and age were included", if (nrow(uni_sig)) paste0("; before adjustment, ", paste(uni_sig$score, collapse = ", "), " predicted faster progression, a signal already carried by Gleason grade") else "") else paste0(n_cox_sig, " of ", nrow(cox_adj), " expression scores remained associated with progression-free interval after adjusting for Gleason group, T stage and age")`.
 
 # Data and design
 
@@ -259,22 +275,28 @@ img("results/deconv/paired_composition.png", "95%")
 
 ## Which pathway changes reflect composition?
 
-The paired model was refitted as `~ patient + stromal + immune + condition`. Tumor status correlates with the stromal score at r = `r mval(dcs, "cor_tumor_stromal")`, so the adjustment is partial by design. It removes the part of each change explained by differing stromal and immune content between a patient's two samples, and leaves the rest.
+The paired model was refitted twice:
+
+1. `~ patient + stromal + immune + condition`, using ESTIMATE scores.
+2. The same, plus the smooth-muscle and basal-epithelium scores.
+
+The second model is needed because ESTIMATE's stromal signature is built from fibroblast and extracellular-matrix genes, while prostate stroma is mostly smooth muscle. Tumor status correlates with the ESTIMATE stromal score at only r = `r mval(dcs, "cor_tumor_stromal")`, but with the smooth-muscle score at r = `r mval(dcs, "cor_tumor_smooth_muscle")` and the basal score at r = `r mval(dcs, "cor_tumor_basal")`. Each adjustment removes the part of a change explained by differing composition between a patient's two samples.
 
 ```{r adj-lists}
-robust  <- dc_ah[class == "robust to composition"][order(-NES_main)]
-sens_ps <- dc_ah[class == "composition-sensitive"][order(-NES_main)]
-emerg   <- dc_ah[class == "emerges after adjustment"][order(-NES_adj)]
+sens_est  <- dc_ah[class == "composition-sensitive"][order(-NES_main)]
+sens_full <- dc_ah[class != "composition-sensitive" & class_full == "composition-sensitive"][order(-NES_main)]
+emerg     <- dc_ah[class_full == "emerges after adjustment" | class == "emerges after adjustment"][order(-NES_main)]
 ```
 
-- **Robust to composition (`r nrow(robust)`):** `r if (nrow(robust)) paste(short(robust$pathway), collapse = ", ") else "none"`.
-- **Composition-sensitive (`r nrow(sens_ps)`):** `r if (nrow(sens_ps)) paste(short(sens_ps$pathway), collapse = ", ") else "none"`.
+- **Robust under both adjustments (`r nrow(core)`):** `r if (nrow(core)) paste(short(core$pathway), collapse = ", ") else "none"`.
+- **Lost after ESTIMATE adjustment (`r nrow(sens_est)`):** `r if (nrow(sens_est)) paste(short(sens_est$pathway), collapse = ", ") else "none"`. These mostly reflect immune and fibroblast content.
+- **Lost only after adding smooth muscle and basal scores (`r nrow(sens_full)`):** `r if (nrow(sens_full)) paste(short(sens_full$pathway), collapse = ", ") else "none"`. These mostly reflect loss of fibromuscular stroma and basal cells.
 - **Significant only after adjustment (`r nrow(emerg)`):** `r if (nrow(emerg)) paste(short(emerg$pathway), collapse = ", ") else "none"`.
 
-Sets in the first group are the strongest candidates for changes within tumor cells. Sets in the second group are largely explained by tumors containing less stroma and fewer immune cells than normal prostate.
+The robust sets are the strongest candidates for changes within tumor cells. The smooth-muscle score shares genes with the Hallmark myogenesis set, so myogenesis weakening under the second model is partly circular rather than evidence by itself.
 
-```{r fig-adj, fig.cap = "Hallmark NES before and after composition adjustment."}
-img("results/deconv/adjusted_paired_hallmark.png", "70%")
+```{r fig-adj, fig.cap = "Hallmark NES before and after composition adjustment, for both adjusted models."}
+img("results/deconv/adjusted_paired_hallmark.png", "100%")
 ```
 
 ## Composition and the race comparison
@@ -289,7 +311,20 @@ kable(dc_rc[order(p)][1:min(8, .N), .(Score = score, `Difference (SD, Black − 
 img("results/deconv/race_composition.png", "95%")
 ```
 
-Adding ESTIMATE stromal and immune scores to the race model gives interferon-γ NES = `r round(ifn_g$NES_adj, 2)` (adjusted p = `r signif(ifn_g$padj_adj, 2)`) and interferon-α NES = `r round(ifn_a$NES_adj, 2)` (adjusted p = `r signif(ifn_a$padj_adj, 2)`). `r if (ifn_survives) "The interferon signal is therefore not simply explained by more immune cells in tumors from Black patients, which points towards interferon activity within the tumor or its stroma." else "The interferon signal is therefore largely explained by differences in immune and stromal content, rather than by interferon activity within tumor cells."` The ESTIMATE immune signature itself contains some interferon-inducible genes, so this adjustment is conservative.
+Immune content is modestly higher in Black patients' tumors (ESTIMATE immune score `r sprintf("%+.2f", mval(dcs, "race_immune_diff_sd"))` SD, adjusted p = `r mval(dcs, "race_immune_padj")`). To ask whether this explains the interferon difference, the race model was adjusted in two ways:
+
+- **ESTIMATE stromal and immune scores.** `r mval(dcs, "estimate_immune_ifn_overlap_genes")` genes of the ESTIMATE immune signature are also in the Hallmark interferon sets, so this adjustment can remove interferon signal itself.
+- **MCP-counter T-cell, B-lineage and fibroblast scores**, which are built from lineage marker genes.
+
+```{r tab-ifn}
+ifn_tab <- dc_ra[grepl("INTERFERON|ALLOGRAFT", pathway)]
+kable(ifn_tab[, .(Pathway = short(pathway), `NES main` = round(NES_main, 2), `padj main` = signif(padj_main, 2),
+                  `NES ESTIMATE-adj` = round(NES_est, 2), `padj ESTIMATE` = signif(padj_est, 2),
+                  `NES MCP-adj` = round(NES_mcp, 2), `padj MCP` = signif(padj_mcp, 2))],
+      caption = "Interferon and allograft-rejection sets, Black vs White tumors, under each adjustment")
+```
+
+The interferon difference `r ifn_text`. Across all 50 Hallmark sets, the median NES shifts by `r sprintf("%+.2f", mval(dcs, "race_nes_median_shift_estimate"))` after the ESTIMATE adjustment and `r sprintf("%+.2f", mval(dcs, "race_nes_median_shift_mcp"))` after the MCP-counter adjustment. A large uniform shift means the adjustment moves almost every pathway at once, a sign of over-adjustment rather than pathway-specific biology. Bulk RNA-seq cannot fully separate "more immune cells" from "more interferon activity per cell"; spatial or single-cell data would be needed to settle it.
 
 # Association with progression
 
@@ -311,7 +346,7 @@ img("results/survival/forest_plot.png", "75%")
 img("results/survival/km_plots.png", "100%")
 ```
 
-The strongest adjusted association is **`r cox_adj$score[1]`** (HR `r round(cox_adj$HR_per_SD[1], 2)` per SD, adjusted p = `r signif(cox_adj$padj[1], 2)`), which raises the C-index by `r sprintf("%+.3f", cox_adj$c_gain_vs_clinical[1])` over clinical variables alone. Median-split curves are shown for illustration only; the Cox models are the formal test. Only `r mval(svs, "events_black")` of `r mval(svs, "n_black")` Black patients had a progression event, too few to test whether any association differs by race.
+`r if (n_cox_sig == 0) paste0("**No score was independently associated with progression.** After adjusting for Gleason group, T stage and age, hazard ratios ranged from ", round(min(cox_adj$HR_per_SD), 2), " to ", round(max(cox_adj$HR_per_SD), 2), " per SD, and the largest C-index gain over the clinical model was ", sprintf("%+.3f", best_gain$c_gain_vs_clinical), " (", best_gain$score, ").") else paste0("**", n_cox_sig, " score(s) remained associated with progression after adjustment:** ", hr_txt(cox_adj[padj < 0.05]), ".")` `r if (nrow(uni_sig)) paste0("Before adjustment, ", paste0(uni_sig$score, " (HR ", round(uni_sig$HR_per_SD, 2), ", adjusted p = ", signif(uni_sig$padj, 2), ")", collapse = "; "), " predicted faster progression. High-grade tumors proliferate more, so this prognostic signal is largely carried by Gleason grade.") else ""` Median-split curves are shown for illustration only; the Cox models are the formal test. Only `r mval(svs, "events_black")` of `r mval(svs, "n_black")` Black patients had a progression event, too few to test whether any association differs by race.
 
 # Limitations
 

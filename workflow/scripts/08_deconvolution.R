@@ -11,11 +11,13 @@
 #       MCP-counter immune & stromal populations (Becht 2016)
 #       Marker scores: smooth muscle, basal epithelium
 #  2. Paired tumor vs normal composition (Wilcoxon signed-rank)
-#  3. Composition-adjusted paired DE:
-#       ~ patient + stromal_z + immune_z + condition  -> Hallmark GSEA
+#  3. Composition-adjusted paired DE -> Hallmark GSEA, two models:
+#       ~ patient + stromal_z + immune_z + condition            (ESTIMATE)
+#       ~ patient + stromal_z + immune_z + smooth_z + basal_z + condition
 #     Which tumor-vs-normal pathways are composition-driven?
 #  4. Black vs White tumors: composition differences, and whether the
-#     interferon signal survives adjustment for stromal/immune content
+#     interferon signal survives adjustment, using ESTIMATE scores and,
+#     separately, MCP-counter scores built from lineage marker genes
 # ---------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -158,44 +160,63 @@ dds$patient   <- factor(gsub("-", "_", as.character(dds$patient)))
 dds$condition <- relevel(factor(dds$condition), ref = "normal")
 dds$stromal_z <- zs(cmp$estimate_stromal)
 dds$immune_z  <- zs(cmp$estimate_immune)
-r_cs <- cor(as.numeric(dds$condition == "tumor"), dds$stromal_z)
-r_ci <- cor(as.numeric(dds$condition == "tumor"), dds$immune_z)
-message(sprintf("Correlation of tumor status with stromal score r = %.2f, immune score r = %.2f", r_cs, r_ci))
+dds$smooth_z  <- zs(cmp$smooth_muscle)
+dds$basal_z   <- zs(cmp$basal_epithelium)
+is_tum <- as.numeric(dds$condition == "tumor")
+r_cs <- cor(is_tum, dds$stromal_z); r_ci <- cor(is_tum, dds$immune_z)
+r_sm <- cor(is_tum, dds$smooth_z);  r_ba <- cor(is_tum, dds$basal_z)
+message(sprintf("Correlation of tumor status with scores: ESTIMATE stromal r = %.2f, immune r = %.2f, smooth muscle r = %.2f, basal r = %.2f",
+                r_cs, r_ci, r_sm, r_ba))
+# ESTIMATE's stromal signature is fibroblast/ECM-based; prostate stroma is mostly smooth muscle,
+# so a second model also adjusts for smooth-muscle and basal-cell scores.
 
-design(dds) <- ~ patient + stromal_z + immune_z + condition
-dds <- DESeq(dds, parallel = threads > 1, BPPARAM = bp, quiet = TRUE)
-ra  <- results(dds, name = "condition_tumor_vs_normal", alpha = fdr)
-gn  <- mcols(dds)$gene_name
+gn <- mcols(dds)$gene_name
+fit_paired <- function(f) {
+  d <- dds; design(d) <- f
+  d <- DESeq(d, parallel = threads > 1, BPPARAM = bp, quiet = TRUE)
+  results(d, name = "condition_tumor_vs_normal", alpha = fdr)
+}
+ra  <- fit_paired(~ patient + stromal_z + immune_z + condition)
+ra2 <- fit_paired(~ patient + stromal_z + immune_z + smooth_z + basal_z + condition)
 n_adj_any <- sum(ra$padj < fdr, na.rm = TRUE)
 n_adj_deg <- sum(ra$padj < fdr & abs(ra$log2FoldChange) >= 1, na.rm = TRUE)
-message(sprintf("Composition-adjusted paired DE: %d genes padj < %.2f; %d also |log2FC| >= 1 (unshrunk)",
-                n_adj_any, fdr, n_adj_deg))
+n_full_any <- sum(ra2$padj < fdr, na.rm = TRUE)
+message(sprintf("Paired DE adjusted for ESTIMATE: %d genes padj < %.2f (%d with |log2FC| >= 1); + smooth muscle + basal: %d genes padj < %.2f",
+                n_adj_any, fdr, n_adj_deg, n_full_any, fdr))
 
-ha <- gsea_h(ra$stat, gn)
+classify <- function(nm, pm, na, pa) fifelse(pm < fdr & pa < fdr & sign(nm) == sign(na), "robust to composition",
+                                     fifelse(pm < fdr, "composition-sensitive",
+                                     fifelse(pa < fdr, "emerges after adjustment", "neither")))
 hm <- fread(inp[["hallmark"]])[, .(pathway, NES_main = NES, padj_main = padj)]
-ah <- merge(hm, ha[, .(pathway, NES_adj = NES, padj_adj = padj)], by = "pathway")
-ah[, class := fifelse(padj_main < fdr & padj_adj < fdr & sign(NES_main) == sign(NES_adj), "robust to composition",
-              fifelse(padj_main < fdr, "composition-sensitive", fifelse(padj_adj < fdr, "emerges after adjustment", "neither")))]
+ah <- Reduce(function(x, y) merge(x, y, by = "pathway"),
+             list(hm, gsea_h(ra$stat, gn)[, .(pathway, NES_adj = NES, padj_adj = padj)],
+                  gsea_h(ra2$stat, gn)[, .(pathway, NES_full = NES, padj_full = padj)]))
+ah[, class := classify(NES_main, padj_main, NES_adj, padj_adj)]
+ah[, class_full := classify(NES_main, padj_main, NES_full, padj_full)]
 ah <- ah[order(padj_main)]
 fwrite(ah, out[["adj_hallmark"]], sep = "\t")
-message("Hallmark tumor-vs-normal sets after composition adjustment:")
-print(ah[padj_main < fdr | padj_adj < fdr][order(class, -NES_main),
+message("Hallmark tumor-vs-normal sets: main vs ESTIMATE-adjusted vs fully adjusted (+ smooth muscle + basal):")
+print(ah[padj_main < fdr | padj_adj < fdr | padj_full < fdr][order(class_full, -NES_main),
          .(pathway = short(pathway), NES_main = round(NES_main, 2), NES_adj = round(NES_adj, 2),
-           padj_adj = signif(padj_adj, 3), class)])
+           NES_full = round(NES_full, 2), padj_full = signif(padj_full, 3), class, class_full)])
+message("Note: the smooth-muscle score shares genes with HALLMARK_MYOGENESIS, so its loss under full adjustment is partly circular.")
 
-g <- ggplot(ah, aes(NES_main, NES_adj, colour = class)) +
+al <- rbind(ah[, .(pathway, NES_main, NES = NES_adj, cls = class, model = "Adjusted: ESTIMATE stromal + immune")],
+            ah[, .(pathway, NES_main, NES = NES_full, cls = class_full, model = "Adjusted: + smooth muscle + basal")])
+g <- ggplot(al, aes(NES_main, NES, colour = cls)) +
   geom_hline(yintercept = 0, colour = "grey70") + geom_vline(xintercept = 0, colour = "grey70") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey60") +
-  geom_point(size = 2.6) +
-  ggrepel::geom_text_repel(data = ah[class != "neither"], aes(label = short(pathway)),
-                           size = 2.6, colour = "black", max.overlaps = 40) +
+  geom_point(size = 2.2) +
+  ggrepel::geom_text_repel(data = al[cls %in% c("composition-sensitive", "emerges after adjustment")],
+                           aes(label = short(pathway)), size = 2.4, colour = "black", max.overlaps = 40) +
   scale_colour_manual(values = c(`robust to composition` = "#6A3D9A", `composition-sensitive` = "#E3A587",
                                  `emerges after adjustment` = "#2E6F9E", neither = "grey75"), name = NULL) +
-  labs(x = "NES, main paired model", y = "NES, adjusted for ESTIMATE stromal + immune scores",
+  facet_wrap(~ model) +
+  labs(x = "NES, main paired model", y = "NES, adjusted model",
        title = "Which tumor-vs-normal pathways reflect tissue composition?",
-       subtitle = "~ patient + stromal + immune + condition") +
+       subtitle = "Labelled: sets whose significance changes with adjustment") +
   theme(legend.position = "bottom")
-ggsave(out[["adj_plot"]], g, width = 8, height = 7.5, dpi = 150)
+ggsave(out[["adj_plot"]], g, width = 12, height = 6.5, dpi = 150)
 
 # =================================================================
 # 4. Black vs White tumors
@@ -231,41 +252,72 @@ g <- ggplot(rl, aes(race, value, fill = race)) +
 ggsave(out[["race_plot"]], g, width = 11, height = 6.5, dpi = 150)
 
 # Does the interferon signal survive composition adjustment?
+# Two adjustments, because they can remove different things:
+#   ESTIMATE: stromal + immune scores. The immune signature shares genes with the
+#             Hallmark interferon sets, so adjusting for it can remove interferon signal itself.
+#   MCP:      T-cell, B-lineage and fibroblast scores, built from lineage markers.
+imm_sig <- tidyestimate::gene_sets$immune_signature
+ifn_genes <- unique(c(hall$HALLMARK_INTERFERON_ALPHA_RESPONSE, hall$HALLMARK_INTERFERON_GAMMA_RESPONSE))
+ov_ifn <- intersect(imm_sig, ifn_genes)
+message(sprintf("ESTIMATE immune signature genes also in Hallmark interferon sets: %d of %d (%s)",
+                length(ov_ifn), length(imm_sig), paste(head(ov_ifn, 15), collapse = ", ")))
+
 ct  <- assay(se, "unstranded")[, tr$barcode]
-cdt <- data.frame(tr[, .(race, gleason_group = droplevels(gleason_group), age_s,
-                         stromal_z = zs(estimate_stromal), immune_z = zs(estimate_immune))],
-                  row.names = tr$barcode)
-dr <- DESeqDataSetFromMatrix(ct, cdt, design = ~ gleason_group + age_s + stromal_z + immune_z + race)
-dr <- dr[rowSums(counts(dr) >= p[["min_count"]]) >= sum(tr$race == "Black"), ]
-dr <- DESeq(dr, parallel = threads > 1, BPPARAM = bp, quiet = TRUE)
-rr <- results(dr, name = "race_Black_vs_White", alpha = fdr)
-gt <- rd[rownames(dr), "gene_type"]
-rep_ok <- gt %in% c("protein_coding", "lncRNA")
-hr <- gsea_h(rr$stat[rep_ok], rd[rownames(dr), "gene_name"][rep_ok])
+gt  <- rd[rownames(ct), "gene_type"]
+fit_race_h <- function(covs) {
+  cdt <- data.frame(tr[, .(race, gleason_group = droplevels(gleason_group), age_s)], row.names = tr$barcode)
+  for (cv in covs) cdt[[paste0(cv, "_z")]] <- zs(tr[[cv]])
+  f <- as.formula(paste("~ gleason_group + age_s +", paste(paste0(covs, "_z"), collapse = " + "), "+ race"))
+  d <- DESeqDataSetFromMatrix(ct, cdt, design = f)
+  keep <- rowSums(counts(d) >= p[["min_count"]]) >= sum(tr$race == "Black")
+  d <- DESeq(d[keep, ], parallel = threads > 1, BPPARAM = bp, quiet = TRUE)
+  r <- results(d, name = "race_Black_vs_White", alpha = fdr)
+  ok <- rd[rownames(d), "gene_type"] %in% c("protein_coding", "lncRNA")
+  gsea_h(r$stat[ok], rd[rownames(d), "gene_name"][ok])
+}
+h_est <- fit_race_h(c("estimate_stromal", "estimate_immune"))
+h_mcp <- fit_race_h(c("mcp_T_cells", "mcp_B_lineage", "mcp_Fibroblasts"))
 mr <- fread(inp[["race_hallmark"]])[, .(pathway, NES_main = NES, padj_main = padj)]
-ra2 <- merge(mr, hr[, .(pathway, NES_adj = NES, padj_adj = padj)], by = "pathway")[order(padj_main)]
-fwrite(ra2, out[["race_adj_hallmark"]], sep = "\t")
-message("Race Hallmark sets before vs after stromal + immune adjustment:")
-print(ra2[padj_main < fdr | padj_adj < fdr, .(pathway = short(pathway), NES_main = round(NES_main, 2),
-          padj_main = signif(padj_main, 3), NES_adj = round(NES_adj, 2), padj_adj = signif(padj_adj, 3))])
-ifn <- ra2[grepl("INTERFERON", pathway)]
+rh <- Reduce(function(x, y) merge(x, y, by = "pathway"),
+             list(mr, h_est[, .(pathway, NES_est = NES, padj_est = padj)],
+                  h_mcp[, .(pathway, NES_mcp = NES, padj_mcp = padj)]))[order(padj_main)]
+fwrite(rh, out[["race_adj_hallmark"]], sep = "\t")
+shift_est <- median(rh$NES_est - rh$NES_main); shift_mcp <- median(rh$NES_mcp - rh$NES_main)
+message(sprintf("Median NES shift across all 50 sets after adjustment: ESTIMATE %+.2f, MCP %+.2f (large uniform shifts suggest over-adjustment)",
+                shift_est, shift_mcp))
+message("Race Hallmark sets: main vs ESTIMATE-adjusted vs MCP-adjusted:")
+print(rh[padj_main < fdr | padj_est < fdr | padj_mcp < fdr,
+         .(pathway = short(pathway), NES_main = round(NES_main, 2), padj_main = signif(padj_main, 2),
+           NES_est = round(NES_est, 2), padj_est = signif(padj_est, 2),
+           NES_mcp = round(NES_mcp, 2), padj_mcp = signif(padj_mcp, 2))])
+ifn <- rh[grepl("INTERFERON", pathway)]
+gv  <- function(pw, col) { v <- ifn[pathway == pw][[col]]; if (length(v)) v else NA_real_ }
+IFA <- "HALLMARK_INTERFERON_ALPHA_RESPONSE"; IFG <- "HALLMARK_INTERFERON_GAMMA_RESPONSE"
 
 # ---- summary -----------------------------------------------------
 summ <- data.table(
-  metric = c("paired_stromal_tumor_lower_pairs", "paired_immune_padj", "cor_tumor_stromal", "cor_tumor_immune",
-             "adj_paired_genes_padj05", "adj_paired_genes_padj05_lfc1",
+  metric = c("paired_stromal_tumor_lower_pairs", "paired_immune_padj",
+             "cor_tumor_stromal", "cor_tumor_immune", "cor_tumor_smooth_muscle", "cor_tumor_basal",
+             "adj_paired_genes_padj05", "adj_paired_genes_padj05_lfc1", "full_adj_paired_genes_padj05",
              "hallmark_robust", "hallmark_composition_sensitive", "hallmark_emerging",
-             "race_immune_diff_sd", "race_immune_padj",
-             "race_ifna_nes_adj", "race_ifna_padj_adj", "race_ifng_nes_adj", "race_ifng_padj_adj"),
+             "hallmark_robust_full", "hallmark_composition_sensitive_full", "hallmark_emerging_full",
+             "race_immune_diff_sd", "race_immune_padj", "estimate_immune_ifn_overlap_genes",
+             "race_nes_median_shift_estimate", "race_nes_median_shift_mcp",
+             "race_ifna_nes_est", "race_ifna_padj_est", "race_ifng_nes_est", "race_ifng_padj_est",
+             "race_ifna_nes_mcp", "race_ifna_padj_mcp", "race_ifng_nes_mcp", "race_ifng_padj_mcp"),
   value = c(pt[score == "estimate_stromal", pairs - tumor_higher_pairs], signif(pt[score == "estimate_immune", padj], 3),
-            round(r_cs, 3), round(r_ci, 3), n_adj_any, n_adj_deg,
+            round(r_cs, 3), round(r_ci, 3), round(r_sm, 3), round(r_ba, 3),
+            n_adj_any, n_adj_deg, n_full_any,
             sum(ah$class == "robust to composition"), sum(ah$class == "composition-sensitive"),
             sum(ah$class == "emerges after adjustment"),
+            sum(ah$class_full == "robust to composition"), sum(ah$class_full == "composition-sensitive"),
+            sum(ah$class_full == "emerges after adjustment"),
             round(rc[score == "estimate_immune", diff_sd_black_vs_white], 3), signif(rc[score == "estimate_immune", padj], 3),
-            round(ifn[pathway == "HALLMARK_INTERFERON_ALPHA_RESPONSE", NES_adj], 3),
-            signif(ifn[pathway == "HALLMARK_INTERFERON_ALPHA_RESPONSE", padj_adj], 3),
-            round(ifn[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE", NES_adj], 3),
-            signif(ifn[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE", padj_adj], 3)))
+            length(ov_ifn), round(shift_est, 3), round(shift_mcp, 3),
+            round(gv(IFA, "NES_est"), 3), signif(gv(IFA, "padj_est"), 3),
+            round(gv(IFG, "NES_est"), 3), signif(gv(IFG, "padj_est"), 3),
+            round(gv(IFA, "NES_mcp"), 3), signif(gv(IFA, "padj_mcp"), 3),
+            round(gv(IFG, "NES_mcp"), 3), signif(gv(IFG, "padj_mcp"), 3)))
 fwrite(summ, out[["summary"]], sep = "\t")
 message("Deconvolution summary:"); print(summ)
 message("Done.")
