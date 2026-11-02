@@ -61,6 +61,21 @@ n_pairs <- uniqueN(sheet$patient)
 n_up    <- sum(de_sig$direction == "up"); n_down <- sum(de_sig$direction == "down")
 h_sig   <- hall[padj < 0.05]
 n_flag  <- sum(flags$flagged)
+
+# M8: composition and progression
+dcs    <- rd("results/deconv/deconv_summary.tsv")
+dc_pt  <- rd("results/deconv/paired_composition_tests.tsv")
+dc_ah  <- rd("results/deconv/adjusted_paired_hallmark.tsv")
+dc_rc  <- rd("results/deconv/race_composition.tsv")
+dc_ra  <- rd("results/deconv/race_adjusted_hallmark.tsv")
+svs    <- rd("results/survival/survival_summary.tsv")
+cox    <- rd("results/survival/cox_results.tsv")
+mval   <- function(tab, m) { v <- tab[metric == m, value]; suppressWarnings(if (!is.na(as.numeric(v))) as.numeric(v) else v) }
+ifn_a  <- dc_ra[pathway == "HALLMARK_INTERFERON_ALPHA_RESPONSE"]
+ifn_g  <- dc_ra[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]
+ifn_survives <- isTRUE(ifn_g$padj_adj < 0.05 & ifn_g$NES_adj > 0) || isTRUE(ifn_a$padj_adj < 0.05 & ifn_a$NES_adj > 0)
+cox_adj <- cox[model == "adjusted"][order(p)]
+n_cox_sig <- sum(cox_adj$padj < 0.05)
 ```
 
 # Summary {.unnumbered}
@@ -71,6 +86,8 @@ n_flag  <- sum(flags$flagged)
 - **Robust to QC choices.** Excluding `r n_flag` borderline-purity tumors leaves fold changes almost unchanged (Spearman ρ = `r sens$spearman_log2FC_all`).
 - **Independent validation (GSE104131).** In `r metric(val, "complete_pairs")` high-grade pairs, `r pct(metric(val, "sign_agreement_tcga_DEGs"))` of TCGA DEGs change in the same direction, a TCGA-derived signature separates tumor from normal with AUC = `r metric(val, "signature_auc")`, and `r metric(val, "hallmark_replicated")` of `r nrow(h_sig)` Hallmark sets replicate.
 - **Ancestry (exploratory).** Tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to adjustment for tissue source site. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
+- **Tissue composition.** After adjusting the paired model for ESTIMATE stromal and immune scores, `r mval(dcs, "hallmark_robust")` Hallmark sets remain significant in the same direction and `r mval(dcs, "hallmark_composition_sensitive")` lose significance, separating tumor-cell programmes from composition effects. The interferon difference between Black and White patients' tumors `r if (ifn_survives) "survives" else "does not survive"` adjustment for stromal and immune content.
+- **Progression.** In `r mval(svs, "cox_complete_cases")` tumors with `r mval(svs, "cox_events")` progression events, `r n_cox_sig` of `r nrow(cox_adj)` expression scores are associated with progression-free interval after adjusting for Gleason group, T stage and age (FDR < 0.05).
 
 # Data and design
 
@@ -221,9 +238,85 @@ img("results/ancestry/tcga_race_site_matched_nes.png", "60%")
 
 Several top individual genes (e.g. TDO2, RBM44, MAEL, TRIM31) show large, consistent shifts. Shifts like these are often driven by inherited variants whose frequency differs between populations, not by tumor biology. Testing the same genes in normal tissue would distinguish the two, but needs more normal samples from Black patients than TCGA provides.
 
+# Tissue composition
+
+Bulk RNA-seq measures a mixture of tumor cells, stroma and immune cells. Composition was estimated for every sample with three signature-based methods: **ESTIMATE** stromal and immune scores (Yoshihara et al. 2013), **MCP-counter** abundance scores for eight immune and two stromal populations (Becht et al. 2016), and marker scores for smooth muscle (ACTG2, DES, CNN1, MYH11, ACTA2, TAGLN) and basal epithelium (KRT5, KRT15, TP63). These are relative scores, not absolute cell fractions.
+
+## Tumor vs matched normal
+
+```{r tab-paired-comp}
+key <- c("estimate_stromal", "estimate_immune", "mcp_Fibroblasts", "smooth_muscle", "basal_epithelium",
+         "mcp_Endothelial_cells", "mcp_T_cells")
+kable(dc_pt[score %in% key][order(p), .(Score = score, `Median normal` = round(median_normal, 2),
+        `Median tumor` = round(median_tumor, 2), `Tumor higher (pairs)` = paste0(tumor_higher_pairs, " / ", pairs),
+        `Adjusted p` = signif(padj, 2))],
+      caption = "Composition in paired samples (Wilcoxon signed-rank, BH-adjusted)")
+```
+
+```{r fig-paired-comp, fig.cap = "Composition scores in each patient's tumor and normal sample."}
+img("results/deconv/paired_composition.png", "95%")
+```
+
+## Which pathway changes reflect composition?
+
+The paired model was refitted as `~ patient + stromal + immune + condition`. Tumor status correlates with the stromal score at r = `r mval(dcs, "cor_tumor_stromal")`, so the adjustment is partial by design. It removes the part of each change explained by differing stromal and immune content between a patient's two samples, and leaves the rest.
+
+```{r adj-lists}
+robust  <- dc_ah[class == "robust to composition"][order(-NES_main)]
+sens_ps <- dc_ah[class == "composition-sensitive"][order(-NES_main)]
+emerg   <- dc_ah[class == "emerges after adjustment"][order(-NES_adj)]
+```
+
+- **Robust to composition (`r nrow(robust)`):** `r if (nrow(robust)) paste(short(robust$pathway), collapse = ", ") else "none"`.
+- **Composition-sensitive (`r nrow(sens_ps)`):** `r if (nrow(sens_ps)) paste(short(sens_ps$pathway), collapse = ", ") else "none"`.
+- **Significant only after adjustment (`r nrow(emerg)`):** `r if (nrow(emerg)) paste(short(emerg$pathway), collapse = ", ") else "none"`.
+
+Sets in the first group are the strongest candidates for changes within tumor cells. Sets in the second group are largely explained by tumors containing less stroma and fewer immune cells than normal prostate.
+
+```{r fig-adj, fig.cap = "Hallmark NES before and after composition adjustment."}
+img("results/deconv/adjusted_paired_hallmark.png", "70%")
+```
+
+## Composition and the race comparison
+
+```{r tab-race-comp}
+kable(dc_rc[order(p)][1:min(8, .N), .(Score = score, `Difference (SD, Black − White)` = round(diff_sd_black_vs_white, 2),
+        `Adjusted p` = signif(padj, 2))],
+      caption = "Composition of Black vs White patients' tumors (linear model with Gleason group and age)")
+```
+
+```{r fig-race-comp, fig.cap = "Tumor composition by self-reported race."}
+img("results/deconv/race_composition.png", "95%")
+```
+
+Adding ESTIMATE stromal and immune scores to the race model gives interferon-γ NES = `r round(ifn_g$NES_adj, 2)` (adjusted p = `r signif(ifn_g$padj_adj, 2)`) and interferon-α NES = `r round(ifn_a$NES_adj, 2)` (adjusted p = `r signif(ifn_a$padj_adj, 2)`). `r if (ifn_survives) "The interferon signal is therefore not simply explained by more immune cells in tumors from Black patients, which points towards interferon activity within the tumor or its stroma." else "The interferon signal is therefore largely explained by differences in immune and stromal content, rather than by interferon activity within tumor cells."` The ESTIMATE immune signature itself contains some interferon-inducible genes, so this adjustment is conservative.
+
+# Association with progression
+
+**Outcome.** Progression-free interval (PFI) from the TCGA Pan-Cancer Clinical Data Resource (Liu et al. 2018), the endpoint recommended for TCGA-PRAD because deaths are few. **Samples.** One primary tumor per patient: `r mval(svs, "tumors_with_pfi")` tumors with `r mval(svs, "pfi_events")` progression events and median follow-up `r mval(svs, "median_followup_months")` months. **Models.** Cox proportional hazards per standard deviation of each score, univariable and adjusted for Gleason group, pathological T stage and age (`r mval(svs, "cox_complete_cases")` complete cases, `r mval(svs, "cox_events")` events). The clinical-only model has C-index `r mval(svs, "c_index_clinical")`.
+
+```{r tab-cox}
+kable(cox_adj[, .(Score = score, `HR per SD` = round(HR_per_SD, 2),
+                  `95% CI` = sprintf("%.2f–%.2f", lower95, upper95), `Adjusted p` = signif(padj, 2),
+                  `C-index` = round(c_index, 3), `Gain vs clinical` = sprintf("%+.3f", c_gain_vs_clinical),
+                  `PH test p` = signif(ph_global_p, 2))],
+      caption = "Cox models adjusted for Gleason group, T stage and age (BH across scores)")
+```
+
+```{r fig-forest, fig.cap = "Adjusted hazard ratios per SD with 95% confidence intervals."}
+img("results/survival/forest_plot.png", "75%")
+```
+
+```{r fig-km, fig.cap = "Kaplan–Meier curves, median split (unadjusted)."}
+img("results/survival/km_plots.png", "100%")
+```
+
+The strongest adjusted association is **`r cox_adj$score[1]`** (HR `r round(cox_adj$HR_per_SD[1], 2)` per SD, adjusted p = `r signif(cox_adj$padj[1], 2)`), which raises the C-index by `r sprintf("%+.3f", cox_adj$c_gain_vs_clinical[1])` over clinical variables alone. Median-split curves are shown for illustration only; the Cox models are the formal test. Only `r mval(svs, "events_black")` of `r mval(svs, "n_black")` Black patients had a progression event, too few to test whether any association differs by race.
+
 # Limitations
 
-- **Bulk tissue.** Tumor-vs-normal differences mix changes in cell state with changes in cell-type composition, especially stromal loss. Deconvolution would help separate them.
+- **Bulk tissue.** Tumor-vs-normal differences mix changes in cell state with changes in cell-type composition, especially stromal loss. ESTIMATE and MCP-counter give relative signature scores, not true cell fractions, and adjusting for them can also remove real biology when composition and condition are intertwined.
+- **Progression.** PFI in prostate cancer mostly reflects new tumor events after surgery, follow-up is short, and the scores were not tested in an independent outcome cohort.
 - **Purity.** Published purity estimates exist for only some samples. All pairs were kept, and results were robust to excluding the borderline ones.
 - **Validation cohort.** GSE104131 is small (13 pairs) and high-grade only, with counts from a different pipeline and annotation (Entrez IDs mapped to symbols).
 - **Ancestry.** Self-reported race is not genetic ancestry. African-ancestry samples are few, and race is confounded with collection site and grade in TCGA. Tumor-only comparisons cannot show tumor-vs-normal differences. All ancestry results are exploratory.
@@ -258,3 +351,6 @@ if (file.exists(sess)) cat("R session for the DESeq2 step:", readLines(sess)[1:3
 8. Awasthi S, et al. Comparative genomics reveals distinct immune-oncologic pathways in African American men with prostate cancer. *Clin Cancer Res* 2021;27:320–329.
 9. Cohen T, et al. Ancient out-of-Africa mitochondrial DNA variants associate with distinct mitochondrial gene expression patterns. *PLoS Genet* 2016;12:e1006407.
 10. GEO accession GSE104131: RNA sequencing of prostate cancer and normal tissue from African Americans and European Americans.
+11. Yoshihara K, et al. Inferring tumour purity and stromal and immune cell admixture from expression data. *Nat Commun* 2013;4:2612.
+12. Becht E, et al. Estimating the population abundance of tissue-infiltrating immune and stromal cell populations using gene expression. *Genome Biol* 2016;17:218.
+13. Liu J, et al. An integrated TCGA pan-cancer clinical data resource to drive high-quality survival outcome analytics. *Cell* 2018;173:400–416.

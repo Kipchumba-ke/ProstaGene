@@ -272,6 +272,9 @@ rule report:
             f"{GS}/fgsea_hallmark.tsv", f"{GS}/hallmark_gsea_vs_ora.tsv",
             f"{VA}/validation_summary.tsv",
             f"{AN}/ancestry_summary.tsv", f"{AN}/tcga_race_site_matched_hallmark.tsv",
+            f"{DC}/deconv_summary.tsv", f"{DC}/adjusted_paired_hallmark.tsv",
+            f"{DC}/race_adjusted_hallmark.tsv", f"{DC}/paired_composition_tests.tsv",
+            f"{SV}/survival_summary.tsv", f"{SV}/cox_results.tsv",
         ],
     output:
         html  = "reports/report.html",
