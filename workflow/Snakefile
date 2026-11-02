@@ -10,6 +10,7 @@ GS  = "results/gsea"
 VA  = "results/validation"
 AN  = "results/ancestry"
 DC  = "results/deconv"
+SV  = "results/survival"
 GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
@@ -24,6 +25,7 @@ rule all:
         f"{VA}/validation_summary.tsv",
         f"{AN}/ancestry_summary.tsv",
         f"{DC}/deconv_summary.tsv",
+        f"{SV}/survival_summary.tsv",
         "reports/report.html",
         "docs/index.html",
 
@@ -226,6 +228,39 @@ rule deconvolution:
         "envs/r-bioc.yaml"
     script:
         "scripts/08_deconvolution.R"
+
+rule download_cdr:
+    # TCGA Pan-Cancer Clinical Data Resource (Liu et al. 2018, Cell), via the GDC API
+    output:
+        "data/raw/clinical/TCGA-CDR-SupplementalTableS1.xlsx",
+    log:
+        "logs/download_cdr.log",
+    shell:
+        "mkdir -p data/raw/clinical && "
+        "curl -fL -o {output} https://api.gdc.cancer.gov/data/1b5f413e-a8d1-4d10-92eb-7c4ae739ed81 > {log} 2>&1"
+
+
+rule survival:
+    input:
+        se_full = OUT["se_full"],
+        cdr     = "data/raw/clinical/TCGA-CDR-SupplementalTableS1.xlsx",
+        de      = f"{DE}/deseq2_all_genes.tsv",
+        scores  = f"{DC}/cell_scores.tsv",
+    output:
+        dataset = f"{SV}/survival_dataset.tsv",
+        cox     = f"{SV}/cox_results.tsv",
+        km      = f"{SV}/km_plots.png",
+        forest  = f"{SV}/forest_plot.png",
+        summary = f"{SV}/survival_summary.tsv",
+    params:
+        fdr      = 0.05,
+        sig_size = 100,   # top N up and N down DEGs in the tumor signature
+    log:
+        "logs/09_survival.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/09_survival.R"
 
 rule report:
     input:
