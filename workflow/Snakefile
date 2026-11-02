@@ -9,6 +9,7 @@ DE  = "results/de"
 GS  = "results/gsea"
 VA  = "results/validation"
 AN  = "results/ancestry"
+DC  = "results/deconv"
 GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
@@ -22,6 +23,7 @@ rule all:
         f"{GS}/fgsea_reactome.tsv",
         f"{VA}/validation_summary.tsv",
         f"{AN}/ancestry_summary.tsv",
+        f"{DC}/deconv_summary.tsv",
         "reports/report.html",
         "docs/index.html",
 
@@ -194,6 +196,36 @@ rule ancestry:
     script:
         "scripts/07_ancestry.R"
 
+
+rule deconvolution:
+    input:
+        se_full       = OUT["se_full"],
+        se_paired     = OUT["se_paired"],
+        dds           = "data/processed/prad_dds_filtered.rds",
+        hallmark      = f"{GS}/fgsea_hallmark.tsv",
+        race_sheet    = f"{AN}/tcga_race_sample_sheet.tsv",
+        race_hallmark = f"{AN}/tcga_race_hallmark.tsv",
+    output:
+        scores            = f"{DC}/cell_scores.tsv",
+        paired_tests      = f"{DC}/paired_composition_tests.tsv",
+        paired_plot       = f"{DC}/paired_composition.png",
+        adj_hallmark      = f"{DC}/adjusted_paired_hallmark.tsv",
+        adj_plot          = f"{DC}/adjusted_paired_hallmark.png",
+        race_comp         = f"{DC}/race_composition.tsv",
+        race_plot         = f"{DC}/race_composition.png",
+        race_adj_hallmark = f"{DC}/race_adjusted_hallmark.tsv",
+        summary           = f"{DC}/deconv_summary.tsv",
+    params:
+        fdr       = 0.05,
+        min_count = 10,
+        seed      = 42,
+    threads: 4
+    log:
+        "logs/08_deconvolution.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/08_deconvolution.R"
 
 rule report:
     input:

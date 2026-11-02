@@ -4,6 +4,8 @@ channels:
   - bioconda
   - nodefaults
 dependencies:
+  # tidyestimate (CRAN) and MCPcounter (GitHub) are installed by
+  # workflow/scripts/install_extras.R, run once after creating the env.
   - python =3.12 
   - snakemake >=8
   - quarto
@@ -16,6 +18,10 @@ dependencies:
   - r-msigdbr
   - r-knitr
   - r-rmarkdown 
+  - r-survival            # M8 survival analysis
+  - r-readxl              # M8 TCGA-CDR clinical table
+  - r-remotes             # M8 install_extras.R (MCPcounter from GitHub)
+  - r-curl                # MCPcounter fetches its signatures at run time
   - bioconductor-tcgabiolinks
   - bioconductor-summarizedexperiment
   - bioconductor-deseq2
