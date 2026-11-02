@@ -4,7 +4,7 @@ Paired tumor vs. matched normal RNA-seq analysis of TCGA prostate adenocarcinoma
 It includes pathway enrichment, validation in an independent GEO cohort, and an exploratory
 ancestry analysis. Everything runs as one reproducible Snakemake pipeline and renders to a Quarto report.
 
-**📄 [Read the full report](https://<your-username>.github.io/ProstaGene/)**
+**📄 [Read the full report](https://Kipchumba-ke.github.io/ProstaGene/)**
 
 **Author:** Kipchumba, Nursing & Public Health · Bioinformatics
 
