@@ -1,0 +1,3 @@
+afr_group	n	erg_pos	pct_erg	fisher_or	fisher_p	logit_or_per_full_afr	logit_p
+AFR < 0.5	391	165	42.2				
+AFR >= 0.5	53	15	28.3	0.541379992744134	0.0543731586808103	0.367277560861895	0.0168588420584435

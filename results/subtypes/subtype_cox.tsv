@@ -1,0 +1,6 @@
+model	term	HR	lower95	upper95	p	n	events
+ERG (expression) unadjusted	erg_expr_positiveTRUE	0.835707672689446	0.526970167038566	1.3253260960044	0.445565155390242	468	77
+ERG (expression) + T + age, stratified by Gleason	erg_expr_positiveTRUE	0.755178427694835	0.471595815410635	1.20928650980303	0.242439593470049	468	77
+Subtype group (paper) + T + age, stratified by Gleason	subtype:ERG	1.04342193906893	0.427125940429043	2.54896563256438	0.925686899960286	311	43
+Subtype group (paper) + T + age, stratified by Gleason	subtype:ETS_other	2.17241515678405	0.747039426715855	6.31745453405653	0.154302661041827	311	43
+Subtype group (paper) + T + age, stratified by Gleason	subtype:SPOP	2.01848606855165	0.76279541709342	5.3412565383021	0.157182667821115	311	43
