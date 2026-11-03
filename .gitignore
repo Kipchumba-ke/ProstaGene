@@ -37,3 +37,8 @@ Thumbs.db
 # ---- Local environments and secrets ----
 .env
 .Renviron
+
+# ---- Explorer (React + Vite) ----
+explorer/node_modules/
+explorer/dist/
+# explorer/public/data/*.json IS committed: CI builds the site from it

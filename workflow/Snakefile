@@ -13,6 +13,7 @@ DC  = "results/deconv"
 SV  = "results/survival"
 GA  = "results/genetic_ancestry"
 SB  = "results/subtypes"
+EX  = "explorer/public/data"
 GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
@@ -30,6 +31,7 @@ rule all:
         f"{SV}/survival_summary.tsv",
         f"{GA}/genetic_ancestry_summary.tsv",
         f"{SB}/subtype_summary.tsv",
+        f"{EX}/summary.json",
         "reports/report.html",
         "docs/index.html",
 
@@ -340,6 +342,39 @@ rule subtypes:
         "envs/r-bioc.yaml"
     script:
         "scripts/11_subtypes.R"
+
+rule export_explorer:
+    input:
+        sheet = OUT["sample_sheet"], de = f"{DE}/deseq2_all_genes.tsv", sens = f"{DE}/sensitivity_summary.tsv",
+        vsd = "data/processed/prad_vst.rds", hallmark = f"{GS}/fgsea_hallmark.tsv",
+        validation = f"{VA}/validation_summary.tsv", geo_de = f"{VA}/geo_deseq2_all_genes.tsv",
+        geo_hallmark = f"{VA}/geo_fgsea_hallmark.tsv",
+        ancestry = f"{AN}/ancestry_summary.tsv", race_de = f"{AN}/tcga_race_deseq2.tsv",
+        race_hallmark = f"{AN}/tcga_race_hallmark.tsv",
+        deconv = f"{DC}/deconv_summary.tsv", adj_hallmark = f"{DC}/adjusted_paired_hallmark.tsv",
+        paired_comp = f"{DC}/paired_composition_tests.tsv",
+        surv_summary = f"{SV}/survival_summary.tsv", surv_data = f"{SV}/survival_dataset.tsv", cox = f"{SV}/cox_results.tsv",
+        ga = f"{GA}/genetic_ancestry_summary.tsv", afr_de = f"{GA}/afr_deseq2.tsv",
+        afr_hallmark = f"{GA}/afr_hallmark.tsv", germline = f"{GA}/germline_gene_tests.tsv",
+        sb = f"{SB}/subtype_summary.tsv", sb_sheet = f"{SB}/subtype_sample_sheet.tsv",
+        sb_hallmark = f"{SB}/subtype_hallmark.tsv", sb_erg = f"{SB}/erg_vs_ancestry.tsv",
+        sb_cox = f"{SB}/subtype_cox.tsv", sb_paired = f"{SB}/paired_by_erg_hallmark.tsv",
+    output:
+        summary = f"{EX}/summary.json",
+        genes = f"{EX}/genes.json",
+        hallmark = f"{EX}/hallmark.json",
+        expression = f"{EX}/expression.json",
+        survival = f"{EX}/survival.json",
+        subtypes = f"{EX}/subtypes.json",
+        composition = f"{EX}/composition.json",
+    params:
+        n_expr_genes = 300,   # top DEGs with per-sample expression in the explorer
+    log:
+        "logs/12_export_explorer.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/12_export_explorer.R"
 
 rule report:
     input:

@@ -28,6 +28,8 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
   <img src="results/validation/hallmark_nes_concordance.png" width="40%">
 </p>
 
+**🧭 Interactive explorer:** the `explorer/` folder holds a React app with Learn, Clinician and Researcher views; it is published at `/explorer/` next to the report.
+
 ## Methodological notes worth reading
 
 - **Self-reported race vs genetic ancestry:** 2 of 53 self-identified Black patients have near-zero African ancestry, and 2 of 394 White patients are majority African ancestry. Genetic ancestry proportions (Carrot-Zhang et al. 2020) were used as a check on every race result.
@@ -40,7 +42,7 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
 
 ```
 download_tcga → build_paired_set → qc → deseq2 → gsea → geo_validation → ancestry
-  → deconvolution → survival → genetic_ancestry → report
+  → deconvolution → survival → genetic_ancestry → subtypes → export_explorer → report
 ```
 
 | Step | Script | Tools |
@@ -55,6 +57,8 @@ download_tcga → build_paired_set → qc → deseq2 → gsea → geo_validation
 | Composition | `08_deconvolution.R` | ESTIMATE (tidyestimate), MCP-counter, marker scores, composition-adjusted DESeq2 |
 | Progression | `09_survival.R` | TCGA-CDR progression-free interval, Cox models, C-index |
 | Genetic ancestry | `10_genetic_ancestry.R` | Carrot-Zhang et al. 2020 ancestry proportions, AFR-dose model, germline tests |
+| Subtypes | `11_subtypes.R` | TCGA 2015 subtype groups, expression-based ERG call, ERG by ancestry, PFI |
+| Explorer data | `12_export_explorer.R` | JSON export for the React explorer |
 | Report | `reports/report.qmd` | Quarto |
 
 ## Running it
