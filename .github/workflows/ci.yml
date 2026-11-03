@@ -33,13 +33,15 @@ jobs:
 
       - name: Dry run
         run: >
-          snakemake -n --allowed-rules qc deseq2 gsea
+          snakemake -n
           results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+          --allowed-rules qc deseq2 gsea
 
       - name: Run QC, DESeq2 and GSEA
         run: >
-          snakemake --cores 2 --allowed-rules qc deseq2 gsea
+          snakemake --cores 2
           results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+          --allowed-rules qc deseq2 gsea
 
       - name: Check known effects are recovered
         run: Rscript tests/check_results.R

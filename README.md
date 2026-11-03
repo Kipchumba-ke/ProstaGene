@@ -113,7 +113,7 @@ Run the synthetic test locally:
 
 ```bash
 Rscript tests/make_synthetic_data.R
-snakemake --cores 2 --allowed-rules qc deseq2 gsea results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+snakemake --cores 2 results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv --allowed-rules qc deseq2 gsea   # targets first: --allowed-rules takes several values
 Rscript tests/check_results.R
 ```
 
