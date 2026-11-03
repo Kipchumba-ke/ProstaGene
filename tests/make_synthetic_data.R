@@ -45,7 +45,10 @@ cd$tss   <- ifelse(seq_len(nrow(cd)) %% 4 < 2, "SY", "SZ")
 cd$plate <- ifelse(rep(seq_len(n_pairs), each = 2) %% 2 == 0, "A000", "A001")
 rownames(cd) <- paste0(cd$patient, ifelse(cd$condition == "tumor", "-01A", "-11A"), "-11R-", cd$plate, "-07")
 
-base_mu <- exp(rnorm(G, 5, 1.5))
+base_mu <- setNames(exp(rnorm(G, 5, 1.5)), genes)
+# Marker genes get a fixed, comfortable baseline so the QC expression filter
+# (>= 10 reads in >= 8 samples) can never drop them by chance.
+base_mu[c(up_tumor, down_tumor)] <- 500
 size_factor <- exp(rnorm(nrow(cd), 0, 0.15))
 patient_effect <- matrix(rnorm(G * n_pairs, 0, 0.25), G, n_pairs)[, match(cd$patient, patients)]
 mu <- base_mu * 2^(outer(lfc, as.numeric(cd$condition == "tumor"))) * exp(patient_effect) *
