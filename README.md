@@ -94,9 +94,9 @@ The GDC data release used is recorded in `data/processed/download_provenance.yam
 ### Docker
 
 ```bash
-docker pull ghcr.io/<your-username>/prostagene:latest
+docker pull ghcr.io/kipchumba-ke/prostagene:latest
 docker run --rm -v "$PWD/data:/work/data" -v "$PWD/results:/work/results" \
-  ghcr.io/<your-username>/prostagene:latest snakemake --cores 4
+  ghcr.io/kipchumba-ke/prostagene:latest snakemake --cores 4
 ```
 
 ## Testing and continuous integration
