@@ -14,7 +14,7 @@
 #     Hallmark GSEA; compare with the self-reported-race result (M6)
 #  3. Germline test for the top race-associated genes: does expression
 #     track AFR fraction (a) in all tumors, (b) WITHIN self-identified
-#     Black patients (admixture dose-response), and (c) in matched
+#     Black patients with AFR >= 0.5 (admixture dose-response), and (c) in matched
 #     NORMAL tissue? Tracking AFR in normals and within Black patients
 #     points to inherited variation rather than tumor biology.
 #  4. Interferon-gamma score vs AFR, with and without lymphocyte scores
@@ -214,7 +214,12 @@ sp   <- readRDS(inp[["se_paired"]])
 nb   <- colnames(sp)[sp$condition == "normal"]
 nrm  <- data.table(barcode = nb, patient = substr(nb, 1, 12))[anc[, .(patient, afr)], on = "patient", nomatch = 0]
 ex_n <- expr_sym(se[, nrm$barcode])
-blk  <- dt[race == "Black" & !is.na(gleason_group) & !is.na(age)]
+# Within-group dose-response uses self-identified Black patients WITH substantial African
+# ancestry (AFR >= 0.5): the few with near-zero AFR would otherwise act as high-leverage
+# points and turn the test back into a two-group comparison.
+blk  <- dt[race == "Black" & afr >= 0.5 & !is.na(gleason_group) & !is.na(age)]
+message(sprintf("Self-identified Black patients excluded from within-group tests for AFR < 0.5: %d",
+                nrow(dt[race == "Black" & afr < 0.5])))
 message(sprintf("Germline tests: %d top race genes; tumors n = %d; Black-only tumors n = %d (AFR %.2f-%.2f); normals n = %d (%d with AFR >= 0.5)",
                 length(top), nrow(dt[!is.na(gleason_group) & !is.na(age)]), nrow(blk),
                 min(blk$afr), max(blk$afr), nrow(nrm), sum(nrm$afr >= 0.5)))
@@ -286,7 +291,8 @@ fit_i <- function(f, d) { co <- summary(lm(f, data = d))$coefficients["afr", ]
 ifn <- rbind(
   cbind(model = "all tumors: + Gleason + age", fit_i(ifng ~ afr + gleason_group + age, ii)),
   cbind(model = "all tumors: + Gleason + age + T/B cells", fit_i(ifng ~ afr + gleason_group + age + mcp_T_cells + mcp_B_lineage, ii)),
-  cbind(model = "Black patients only: + Gleason + age", fit_i(ifng ~ afr + gleason_group + age, ii[race == "Black"])))
+  cbind(model = "Black patients with AFR >= 0.5 only: + Gleason + age",
+        fit_i(ifng ~ afr + gleason_group + age, ii[race == "Black" & afr >= 0.5])))
 fwrite(ifn, out[["ifn"]], sep = "\t")
 message("Interferon-gamma score vs AFR fraction (SD change from 0 to 1 AFR):"); print(ifn)
 
@@ -298,6 +304,7 @@ summ <- data.table(
              "afr_genes_fdr05", "afr_hallmark_fdr05", "nes_r_afr_vs_race",
              "ifna_nes_afr", "ifna_padj_afr", "ifng_nes_afr", "ifng_padj_afr",
              "top_genes_tested", "likely_germline_genes", "likely_germline_list",
+             "normals_with_afr", "normals_afr_ge_0.5", "black_within_group_n", "black_excluded_low_afr",
              "ifng_afr_beta", "ifng_afr_p", "ifng_afr_beta_adj_TB", "ifng_afr_p_adj_TB",
              "ifng_afr_beta_black_only", "ifng_afr_p_black_only"),
   value = c(src, nrow(dt), round(median(dt[race == "Black"]$afr), 3), round(min(dt[race == "Black"]$afr), 3),
@@ -310,6 +317,7 @@ summ <- data.table(
             v1(signif(hh[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]$padj_afr, 3)),
             nrow(gtest), sum(gtest$likely_germline, na.rm = TRUE),
             paste(gtest[likely_germline == TRUE]$gene, collapse = ";"),
+            nrow(nrm), sum(nrm$afr >= 0.5), nrow(blk), nrow(dt[race == "Black" & afr < 0.5]),
             round(ifn$beta_sd_per_full_AFR[1], 3), signif(ifn$p[1], 3),
             round(ifn$beta_sd_per_full_AFR[2], 3), signif(ifn$p[2], 3),
             round(ifn$beta_sd_per_full_AFR[3], 3), signif(ifn$p[3], 3)))

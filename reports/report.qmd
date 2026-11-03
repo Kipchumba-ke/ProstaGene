@@ -103,6 +103,8 @@ gv     <- function(m) { v <- gas[metric == m, value]; n <- suppressWarnings(as.n
 germ   <- ga_gt[likely_germline == TRUE]
 ifng_afr <- ga_hh[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]
 ifn_afr_sig <- isTRUE(ifng_afr$padj_afr < 0.05 & ifng_afr$NES_afr > 0)
+ifn_pt_p  <- ga_ifn$p[1]; ifn_pt_b <- ga_ifn$beta_sd_per_full_AFR[1]
+ifn_pt_sig <- isTRUE(ifn_pt_p < 0.05 & ifn_pt_b > 0)
 ```
 
 # Summary {.unnumbered}
@@ -112,7 +114,7 @@ ifn_afr_sig <- isTRUE(ifng_afr$padj_afr < 0.05 & ifng_afr$NES_afr > 0)
 - **Pathways.** `r nrow(h_sig)` of 50 Hallmark sets are enriched: MYC targets, proliferation (E2F, G2M) and androgen response up; smooth-muscle, stromal and inflammatory programmes down.
 - **Robust to QC choices.** Excluding `r n_flag` borderline-purity tumors leaves fold changes almost unchanged (Spearman ρ = `r sens$spearman_log2FC_all`).
 - **Independent validation (GSE104131).** In `r metric(val, "complete_pairs")` high-grade pairs, `r pct(metric(val, "sign_agreement_tcga_DEGs"))` of TCGA DEGs change in the same direction, a TCGA-derived signature separates tumor from normal with AUC = `r metric(val, "signature_auc")`, and `r metric(val, "hallmark_replicated")` of `r nrow(h_sig)` Hallmark sets replicate.
-- **Ancestry (exploratory).** Tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to adjustment for tissue source site. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
+- **Ancestry (exploratory).** In gene-set analyses, tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to tissue-source-site adjustment and reproduced with genetic ancestry. At the patient level the shift is modest (`r sprintf("%+.2f", ifn_pt_b)` SD per unit African ancestry, p = `r signif(ifn_pt_p, 2)`) and tracks immune-cell content. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
 - **Genetic ancestry.** Using published genetic ancestry proportions instead of self-reported race, Hallmark results correlate at r = `r gv("nes_r_afr_vs_race")` with the race-based analysis. `r if (nrow(germ)) paste0(nrow(germ), " of the ", nrow(ga_gt), " top race-associated genes (", paste(head(germ$gene, 6), collapse = ", "), ") track African-ancestry fraction in a pattern that points to inherited variation") else paste0("None of the ", nrow(ga_gt), " top race-associated genes met the germline criteria")`.
 - **Tissue composition.** Tumors contain far less smooth muscle and basal epithelium than matched normal tissue. `r nrow(core)` Hallmark sets stay significant in the same direction under every composition adjustment, the strongest candidates for tumor-cell programmes (`r paste(head(short(core[NES_main > 0]$pathway), 6), collapse = ", ")` among those up). The interferon difference between Black and White patients' tumors `r ifn_text`.
 - **Progression.** In `r mval(svs, "cox_complete_cases")` tumors with `r mval(svs, "cox_events")` progression events, `r if (n_cox_sig == 0) paste0("no expression score was associated with progression-free interval once Gleason group, T stage and age were included", if (nrow(uni_sig)) paste0("; before adjustment, ", paste(uni_sig$score, collapse = ", "), " predicted faster progression, a signal already carried by Gleason grade") else "") else paste0(n_cox_sig, " of ", nrow(cox_adj), " expression scores remained associated with progression-free interval after adjusting for Gleason group, T stage and age")`.
@@ -264,7 +266,7 @@ Interferon-α, interferon-γ and allograft-rejection sets are higher in tumors f
 img("results/ancestry/tcga_race_site_matched_nes.png", "60%")
 ```
 
-Several top individual genes (e.g. TDO2, RBM44, MAEL, TRIM31) show large, consistent shifts. Shifts like these are often driven by inherited variants whose frequency differs between populations, not by tumor biology. Testing the same genes in normal tissue would distinguish the two, but needs more normal samples from Black patients than TCGA provides.
+Several top individual genes (e.g. TDO2, RBM44, MAEL, TRIM31) show large, consistent shifts. Large single-gene differences between population groups can come from inherited variants rather than tumor biology; this is tested with genetic ancestry in the next section.
 
 # Genetic ancestry
 
@@ -290,18 +292,20 @@ Tumors from patients of two-way African/European ancestry (`r gv("two_way_tumors
 img("results/genetic_ancestry/afr_vs_race_nes.png", "65%")
 ```
 
-Pathway results correlate at r = `r gv("nes_r_afr_vs_race")` between the two definitions. Interferon-γ response has NES = `r round(ifng_afr$NES_afr, 2)` per unit AFR (adjusted p = `r signif(ifng_afr$padj_afr, 2)`), so the interferon association `r if (ifn_afr_sig) "is reproduced with genetic ancestry" else "is not reproduced with genetic ancestry at FDR < 0.05"`.
+Pathway results correlate at r = `r gv("nes_r_afr_vs_race")` between the two definitions. In the gene-set analysis, interferon-γ response has NES = `r round(ifng_afr$NES_afr, 2)` per unit AFR (adjusted p = `r signif(ifng_afr$padj_afr, 2)`), so the interferon association `r if (ifn_afr_sig) "is reproduced with genetic ancestry" else "is not reproduced with genetic ancestry at FDR < 0.05"`.
+
+Gene-set tests rank genes and treat them as independent, so co-regulated genes such as an interferon programme can make the p-value look more certain than the data allow. The patient-level test below scores each tumor once and regresses that score on AFR. There, the shift is `r sprintf("%+.2f", ifn_pt_b)` SD from AFR 0 to 1 (p = `r signif(ifn_pt_p, 2)`), `r if (ifn_pt_sig) "which supports a real but modest difference" else "the same direction but not statistically distinguishable from no difference"`. The patient-level estimate is the more conservative reading.
 
 ```{r tab-ga-ifn}
 kable(ga_ifn[, .(Model = model, `Change in IFN-γ score (SD) from AFR 0 to 1` = round(beta_sd_per_full_AFR, 2), p = signif(p, 2))],
       caption = "Interferon-γ score vs African-ancestry fraction")
 ```
 
-The second row adds MCP-counter T-cell and B-lineage scores, testing again whether the association runs through immune-cell content (Section on tissue composition). The third row uses variation in AFR among self-identified Black patients only, which is less exposed to differences between collection sites.
+The second row adds MCP-counter T-cell and B-lineage scores, testing again whether the association runs through immune-cell content (Section on tissue composition). The third row uses variation in AFR among self-identified Black patients with AFR ≥ 0.5 only, which is less exposed to differences between collection sites.
 
 ## Are the top race-associated genes inherited signals?
 
-For the `r nrow(ga_gt)` genes most strongly associated with self-reported race (M6), expression was regressed on AFR in three settings. A gene is flagged as a likely **germline** signal if it tracks AFR across all tumors (FDR < 0.05, same direction as the race effect) **and** also tracks AFR either within self-identified Black patients or in matched normal tissue (p < 0.05, same direction). Tracking ancestry in normal tissue, or as a dose-response within one self-reported group, is hard to explain by tumor biology or by social factors linked to the race label.
+For the `r nrow(ga_gt)` genes most strongly associated with self-reported race (M6), expression was regressed on AFR in three settings. A gene is flagged as a likely **germline** signal if it tracks AFR across all tumors (FDR < 0.05, same direction as the race effect) **and** also tracks AFR either within self-identified Black patients with AFR ≥ 0.5 or in matched normal tissue (p < 0.05, same direction). The two self-identified Black patients with near-zero African ancestry are left out of the within-group test, where they would otherwise dominate the fit. The normal-tissue test rests on only `r gv("normals_afr_ge_0.5")` normal samples with AFR ≥ 0.5, so it has little power. Tracking ancestry in normal tissue, or as a dose-response within one self-reported group, is hard to explain by tumor biology or by social factors linked to the race label.
 
 ```{r tab-germline}
 kable(ga_gt[order(p_all_tumors)][1:min(15, .N), .(Gene = gene, `Race log2FC` = round(race_log2FC, 2),
