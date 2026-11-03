@@ -379,7 +379,7 @@ kable(sb_cx[, .(Model = model, Term = term, HR = round(HR, 2), `95% CI` = sprint
       caption = "Progression-free interval by ERG status and subtype group (Cox models)")
 ```
 
-Subtype analyses are limited by group sizes: SPOP and FOXA1 tumors are a small minority, and only `r sv_("n_afr_high")` tumors come from patients with majority African ancestry.
+`r if (sv_("cox_groups_merged_into_other") != "none") paste0("Subtype groups with fewer than three progression events (", gsub(";", ", ", sv_("cox_groups_merged_into_other")), ") were merged into 'Other' for the Cox model, because a group with no events has no estimable hazard ratio. ") else ""`Subtype analyses are limited by group sizes: SPOP and FOXA1 tumors are a small minority, and only `r sv_("n_afr_high")` tumors come from patients with majority African ancestry.
 
 # Tissue composition
 

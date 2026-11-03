@@ -265,6 +265,14 @@ ggsave(out[["subtype_plot"]], g, width = 7, height = max(4, 0.22 * length(keep_p
 sv <- fread(inp[["survival"]])[, .(barcode, pfi, pfi_months, t_stage)]
 cx <- merge(tm, sv, by = "barcode")[!is.na(gleason_group) & !is.na(t_stage) & !is.na(age)]
 cx[, gleason_group := factor(gleason_group, levels = c("GS6", "GS7", "GS8_10"))]
+# Subtype groups with fewer than 3 progression events give infinite hazard ratios
+# (e.g. FOXA1: 9 tumors, 0 events); merge them into "Other" for the Cox model.
+ev <- cx[!is.na(subtype_group), .(events = sum(pfi), n = .N), by = subtype_group]
+small <- as.character(ev[events < 3 & subtype_group != "Other", subtype_group])
+cx[, cox_group := as.character(subtype_group)]
+cx[cox_group %in% small, cox_group := "Other"]
+message("Progression events by subtype group:"); print(ev[order(subtype_group)])
+if (length(small)) message("Merged into 'Other' for the Cox model (< 3 events): ", paste(small, collapse = ", "))
 cox_row <- function(f, d, term) {
   fit <- coxph(f, data = d); s <- summary(fit)
   rows <- grep(term, rownames(s$coefficients), value = TRUE)
@@ -276,9 +284,9 @@ cox <- rbind(
   cbind(model = "ERG (expression) + Gleason + T + age",
         cox_row(Surv(pfi_months, pfi) ~ erg_expr_positive + gleason_group + t_stage + age, cx, "erg")),
   cbind(model = "Subtype group (paper) + Gleason + T + age",
-        cox_row(Surv(pfi_months, pfi) ~ relevel(factor(subtype_group), ref = "Other") + gleason_group + t_stage + age,
-                cx[!is.na(subtype_group)], "subtype")))
-cox[, term := gsub("relevel\\(factor\\(subtype_group\\), ref = \"Other\"\\)", "subtype:", term)]
+        cox_row(Surv(pfi_months, pfi) ~ relevel(factor(cox_group), ref = "Other") + gleason_group + t_stage + age,
+                cx[!is.na(cox_group)], "cox_group")))
+cox[, term := gsub("relevel\\(factor\\(cox_group\\), ref = \"Other\"\\)", "subtype:", term)]
 fwrite(cox, out[["cox"]], sep = "\t")
 message("Progression-free interval:"); print(cox[, .(model, term, HR = round(HR, 2), CI = sprintf("%.2f-%.2f", lower95, upper95), p = signif(p, 2), n, events)])
 
@@ -289,13 +297,14 @@ summ <- data.table(
              "erg_pos_expression", "erg_call_agreement_pct", "erg_pct_afr_low", "erg_pct_afr_high",
              "n_afr_high", "erg_afr_logit_or", "erg_afr_logit_p", "paired_erg_pos", "paired_erg_neg",
              "genes_tumor_effect_differs_by_erg", "pathways_differ_by_erg_fdr05",
-             "erg_pfi_hr_adj", "erg_pfi_p_adj"),
+             "erg_pfi_hr_adj", "erg_pfi_p_adj", "cox_groups_merged_into_other"),
   value = c(scol, nrow(tm), sum(!is.na(tm$subtype_group)), round(thr, 3), sum(tm$erg_expr_positive),
             round(100 * conc, 1), v1(tab_e[afr_group == "AFR < 0.5", pct_erg]), v1(tab_e[afr_group == "AFR >= 0.5", pct_erg]),
             v1(tab_e[afr_group == "AFR >= 0.5", n]), round(exp(lr[["Estimate"]]), 3), signif(lr[["Pr(>|z|)"]], 3),
             n_pos, n_neg, n_dif, sum(pp$padj_wilcox < fdr),
             round(cox[model == "ERG (expression) + Gleason + T + age", HR], 3),
-            signif(cox[model == "ERG (expression) + Gleason + T + age", p], 3)))
+            signif(cox[model == "ERG (expression) + Gleason + T + age", p], 3),
+            if (length(small)) paste(small, collapse = ";") else "none"))
 fwrite(summ, out[["summary"]], sep = "\t")
 message("Subtype summary:"); print(summ)
 message("Done.")
