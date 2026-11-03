@@ -1,5 +1,8 @@
 # ProstaGene: Differential Expression & Pathway Analysis in Prostate Cancer
 
+[![CI](https://github.com/<your-username>/ProstaGene/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/ProstaGene/actions/workflows/ci.yml)
+[![Docker image](https://github.com/<your-username>/ProstaGene/actions/workflows/docker.yml/badge.svg)](https://github.com/<your-username>/ProstaGene/actions/workflows/docker.yml)
+
 Paired tumor vs. matched normal RNA-seq analysis of TCGA prostate adenocarcinoma (TCGA-PRAD).
 It includes pathway enrichment, validation in an independent GEO cohort, and an exploratory
 ancestry analysis. Everything runs as one reproducible Snakemake pipeline and renders to a Quarto report.
@@ -87,6 +90,34 @@ curl -fL -o GSE104131_raw_counts_GRCh38.p13_NCBI.tsv.gz \
 If the FTP link returns 403, download the series matrix from the GEO page for GSE104131 in a browser.
 
 The GDC data release used is recorded in `data/processed/download_provenance.yaml`.
+
+### Docker
+
+```bash
+docker pull ghcr.io/<your-username>/prostagene:latest      # or: docker build -t prostagene .
+docker run --rm -v "$PWD/data:/work/data" -v "$PWD/results:/work/results" \
+  ghcr.io/<your-username>/prostagene:latest snakemake --cores 4
+```
+
+## Testing and continuous integration
+
+Every push runs three GitHub Actions workflows:
+
+| Workflow | What it does |
+|---|---|
+| `ci.yml` | Builds the conda environment, simulates 8 tumor–normal pairs with **known** effects (`tests/make_synthetic_data.R`), runs QC → DESeq2 → GSEA, and checks the effects are recovered (`tests/check_results.R`). Also type-checks and builds the explorer. |
+| `docker.yml` | Builds the image, runs the same synthetic test inside it, and pushes it to the GitHub Container Registry. |
+| `pages.yml` | Publishes the report (`docs/`) and the explorer (`/explorer/`) to GitHub Pages. Set **Settings → Pages → Source** to *GitHub Actions*. |
+
+Run the synthetic test locally:
+
+```bash
+Rscript tests/make_synthetic_data.R
+snakemake --cores 2 --allowed-rules qc deseq2 gsea results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+Rscript tests/check_results.R
+```
+
+The synthetic run overwrites `data/processed/prad_se_paired.rds` and the `results/` it touches, so use a fresh clone or back them up first.
 
 ## Repository layout
 

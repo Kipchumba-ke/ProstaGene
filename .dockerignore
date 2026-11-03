@@ -1,0 +1,12 @@
+.git
+.snakemake
+data/raw
+data/processed/*.rds
+results
+logs
+reports/*_files
+reports/*.html
+docs
+explorer/node_modules
+explorer/dist
+*.mbox

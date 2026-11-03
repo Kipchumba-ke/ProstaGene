@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    name: Pipeline on synthetic data
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash -el {0}   # login shell so the micromamba env is active
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: workflow/envs/r-bioc.yaml
+          environment-name: prad-dge
+          cache-environment: true
+
+      - name: Lint Snakefile
+        continue-on-error: true
+        run: snakemake --lint
+
+      - name: Build synthetic dataset
+        run: Rscript tests/make_synthetic_data.R
+
+      - name: Dry run
+        run: >
+          snakemake -n --allowed-rules qc deseq2 gsea
+          results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+
+      - name: Run QC, DESeq2 and GSEA
+        run: >
+          snakemake --cores 2 --allowed-rules qc deseq2 gsea
+          results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv
+
+      - name: Check known effects are recovered
+        run: Rscript tests/check_results.R
+
+      - name: Upload logs and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-run
+          path: |
+            logs/
+            results/
+          if-no-files-found: ignore
+
+  explorer:
+    name: Explorer build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Use mock data if no exported data is committed
+        run: test -f public/data/summary.json || npm run mock
+      - name: Type-check and build
+        run: npm run build

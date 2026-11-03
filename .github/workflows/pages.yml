@@ -1,0 +1,51 @@
+name: Publish report and explorer
+
+# Requires: Settings → Pages → Source = "GitHub Actions".
+# Publishes docs/ (the rendered Quarto report) at the site root and the explorer at /explorer/.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build explorer
+        working-directory: explorer
+        run: |
+          npm install
+          test -f public/data/summary.json || npm run mock
+          npm run build
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          if [ -d docs ]; then cp -r docs/. _site/; fi
+          cp -r explorer/dist _site/explorer
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

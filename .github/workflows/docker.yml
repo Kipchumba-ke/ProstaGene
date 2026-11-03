@@ -1,0 +1,52 @@
+name: Docker image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - workflow/**
+      - tests/**
+      - config/**
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name (GHCR needs lowercase)
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.name.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test inside the image (synthetic data)
+        run: |
+          docker run --rm ${{ steps.name.outputs.image }}:latest bash -c "
+            Rscript tests/make_synthetic_data.R &&
+            snakemake --cores 2 --allowed-rules qc deseq2 gsea results/gsea/fgsea_hallmark.tsv results/de/sensitivity_summary.tsv &&
+            Rscript tests/check_results.R"
+
+      - name: Push to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push ${{ steps.name.outputs.image }}:latest
