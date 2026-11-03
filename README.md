@@ -1,13 +1,13 @@
 # ProstaGene: Differential Expression & Pathway Analysis in Prostate Cancer
 
-[![CI](https://github.com/<your-username>/ProstaGene/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/ProstaGene/actions/workflows/ci.yml)
-[![Docker image](https://github.com/<your-username>/ProstaGene/actions/workflows/docker.yml/badge.svg)](https://github.com/<your-username>/ProstaGene/actions/workflows/docker.yml)
+[![CI](https://github.com/Kipchumba-ke/ProstaGene/actions/workflows/ci.yml/badge.svg)](https://github.com/Kipchumba-ke/ProstaGene/actions/workflows/ci.yml)
+[![Docker image](https://github.com/Kipchumba-ke/ProstaGene/actions/workflows/docker.yml/badge.svg)](https://github.com/Kipchumba-ke/ProstaGene/actions/workflows/docker.yml)
 
 Paired tumor vs. matched normal RNA-seq analysis of TCGA prostate adenocarcinoma (TCGA-PRAD).
 It includes pathway enrichment, validation in an independent GEO cohort, and an exploratory
 ancestry analysis. Everything runs as one reproducible Snakemake pipeline and renders to a Quarto report.
 
-**📄 [Read the full report](https://Kipchumba-ke.github.io/ProstaGene/)**
+**[Read the full report](https://Kipchumba-ke.github.io/ProstaGene/)**
 
 **Author:** Kipchumba, Nursing & Public Health · Bioinformatics
 
@@ -31,7 +31,7 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
   <img src="results/validation/hallmark_nes_concordance.png" width="40%">
 </p>
 
-**🧭 Interactive explorer:** the `explorer/` folder holds a React app with Learn, Clinician and Researcher views; it is published at `/explorer/` next to the report.
+**Interactive explorer:** the `explorer/` folder holds a React app with Learn, Clinician and Researcher views; it is published at `/explorer/` next to the report.
 
 ## Methodological notes worth reading
 
@@ -71,9 +71,9 @@ Requires Linux or macOS (on Windows, use WSL2) and about 3 GB of disk.
 ```bash
 micromamba create -n prad-dge -f workflow/envs/r-bioc.yaml
 micromamba activate prad-dge
-Rscript workflow/scripts/install_extras.R   # one time: tidyestimate (CRAN) + MCPcounter (GitHub)
-snakemake -n            # dry run
-snakemake --cores 4     # full run
+Rscript workflow/scripts/install_extras.R
+snakemake -n
+snakemake --cores 4
 ```
 
 With conda instead of micromamba, `conda env create -f workflow/envs/r-bioc.yaml` works the same way.
@@ -94,7 +94,7 @@ The GDC data release used is recorded in `data/processed/download_provenance.yam
 ### Docker
 
 ```bash
-docker pull ghcr.io/<your-username>/prostagene:latest      # or: docker build -t prostagene .
+docker pull ghcr.io/<your-username>/prostagene:latest
 docker run --rm -v "$PWD/data:/work/data" -v "$PWD/results:/work/results" \
   ghcr.io/<your-username>/prostagene:latest snakemake --cores 4
 ```
