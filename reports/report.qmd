@@ -92,6 +92,17 @@ n_cox_sig <- sum(cox_adj$padj < 0.05)
 uni_sig <- cox_uni[padj < 0.05]
 best_gain <- cox_adj[which.max(c_gain_vs_clinical)]
 hr_txt <- function(d) paste0(d$score, " (HR ", round(d$HR_per_SD, 2), " per SD, adjusted p = ", signif(d$padj, 2), ")", collapse = "; ")
+
+# M9: genetic ancestry
+gas    <- rd("results/genetic_ancestry/genetic_ancestry_summary.tsv")
+ga_sh  <- rd("results/genetic_ancestry/ancestry_sample_sheet.tsv")
+ga_hh  <- rd("results/genetic_ancestry/afr_hallmark.tsv")
+ga_gt  <- rd("results/genetic_ancestry/germline_gene_tests.tsv")
+ga_ifn <- rd("results/genetic_ancestry/ifn_vs_afr.tsv")
+gv     <- function(m) { v <- gas[metric == m, value]; n <- suppressWarnings(as.numeric(v)); if (length(n) && !is.na(n)) n else v }
+germ   <- ga_gt[likely_germline == TRUE]
+ifng_afr <- ga_hh[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]
+ifn_afr_sig <- isTRUE(ifng_afr$padj_afr < 0.05 & ifng_afr$NES_afr > 0)
 ```
 
 # Summary {.unnumbered}
@@ -102,6 +113,7 @@ hr_txt <- function(d) paste0(d$score, " (HR ", round(d$HR_per_SD, 2), " per SD, 
 - **Robust to QC choices.** Excluding `r n_flag` borderline-purity tumors leaves fold changes almost unchanged (Spearman ρ = `r sens$spearman_log2FC_all`).
 - **Independent validation (GSE104131).** In `r metric(val, "complete_pairs")` high-grade pairs, `r pct(metric(val, "sign_agreement_tcga_DEGs"))` of TCGA DEGs change in the same direction, a TCGA-derived signature separates tumor from normal with AUC = `r metric(val, "signature_auc")`, and `r metric(val, "hallmark_replicated")` of `r nrow(h_sig)` Hallmark sets replicate.
 - **Ancestry (exploratory).** Tumors from Black patients show higher interferon-α/γ signalling than tumors from White patients, robust to adjustment for tissue source site. No ancestry-specific tumor-vs-normal effect was detectable in the small validation cohort.
+- **Genetic ancestry.** Using published genetic ancestry proportions instead of self-reported race, Hallmark results correlate at r = `r gv("nes_r_afr_vs_race")` with the race-based analysis. `r if (nrow(germ)) paste0(nrow(germ), " of the ", nrow(ga_gt), " top race-associated genes (", paste(head(germ$gene, 6), collapse = ", "), ") track African-ancestry fraction in a pattern that points to inherited variation") else paste0("None of the ", nrow(ga_gt), " top race-associated genes met the germline criteria")`.
 - **Tissue composition.** Tumors contain far less smooth muscle and basal epithelium than matched normal tissue. `r nrow(core)` Hallmark sets stay significant in the same direction under every composition adjustment, the strongest candidates for tumor-cell programmes (`r paste(head(short(core[NES_main > 0]$pathway), 6), collapse = ", ")` among those up). The interferon difference between Black and White patients' tumors `r ifn_text`.
 - **Progression.** In `r mval(svs, "cox_complete_cases")` tumors with `r mval(svs, "cox_events")` progression events, `r if (n_cox_sig == 0) paste0("no expression score was associated with progression-free interval once Gleason group, T stage and age were included", if (nrow(uni_sig)) paste0("; before adjustment, ", paste(uni_sig$score, collapse = ", "), " predicted faster progression, a signal already carried by Gleason grade") else "") else paste0(n_cox_sig, " of ", nrow(cox_adj), " expression scores remained associated with progression-free interval after adjusting for Gleason group, T stage and age")`.
 
@@ -254,6 +266,57 @@ img("results/ancestry/tcga_race_site_matched_nes.png", "60%")
 
 Several top individual genes (e.g. TDO2, RBM44, MAEL, TRIM31) show large, consistent shifts. Shifts like these are often driven by inherited variants whose frequency differs between populations, not by tumor biology. Testing the same genes in normal tissue would distinguish the two, but needs more normal samples from Black patients than TCGA provides.
 
+# Genetic ancestry
+
+Self-reported race is a social category, not a measure of genetic ancestry. Per-patient ancestry proportions estimated from germline genotypes by the TCGA Ancestry & Molecular Correlates group (Carrot-Zhang et al. 2020; source file: `r gv("ancestry_source")`) were used instead. **AFR** below is the fraction of a patient's genome estimated to be of African ancestry (0–1).
+
+```{r tab-ga-race}
+kable(ga_sh[, .(n = .N, `Median AFR` = round(median(afr), 2), `Range` = sprintf("%.2f–%.2f", min(afr), max(afr)),
+               `AFR ≥ 0.5` = sum(afr >= 0.5)), by = .(`Self-reported race` = race)],
+      caption = "Genetic African-ancestry fraction by self-reported race (TCGA-PRAD primary tumors)")
+```
+
+```{r fig-ga-race, fig.cap = "Self-reported race vs genetic African-ancestry fraction."}
+img("results/genetic_ancestry/race_vs_genetic_ancestry.png", "60%")
+```
+
+Self-identified Black patients have a median AFR of `r gv("black_median_afr")` (minimum `r gv("black_min_afr")`), the admixed range typical of African Americans. The highest AFR among self-identified White patients is `r gv("white_max_afr")`. `r if (gv("other_unknown_afr_ge_0.5") > 0) paste0(gv("other_unknown_afr_ge_0.5"), " patient(s) with missing or other self-reported race have AFR ≥ 0.5, so genetic data also recover ancestry information that self-report lacks.") else ""`
+
+## Expression and African-ancestry fraction
+
+Tumors from patients of two-way African/European ancestry (`r gv("two_way_tumors")` tumors, `r gv("two_way_afr_ge_0.5")` with AFR ≥ 0.5) were modelled as `~ Gleason group + age + AFR`. Treating ancestry as a continuous dose uses the variation within admixed patients, rather than a two-group label. `r gv("afr_genes_fdr05")` protein-coding or lncRNA genes are associated with AFR at FDR < 0.05, and `r gv("afr_hallmark_fdr05")` Hallmark sets are enriched.
+
+```{r fig-ga-nes, fig.cap = "Hallmark NES by self-reported race (M6) vs by genetic AFR fraction."}
+img("results/genetic_ancestry/afr_vs_race_nes.png", "65%")
+```
+
+Pathway results correlate at r = `r gv("nes_r_afr_vs_race")` between the two definitions. Interferon-γ response has NES = `r round(ifng_afr$NES_afr, 2)` per unit AFR (adjusted p = `r signif(ifng_afr$padj_afr, 2)`), so the interferon association `r if (ifn_afr_sig) "is reproduced with genetic ancestry" else "is not reproduced with genetic ancestry at FDR < 0.05"`.
+
+```{r tab-ga-ifn}
+kable(ga_ifn[, .(Model = model, `Change in IFN-γ score (SD) from AFR 0 to 1` = round(beta_sd_per_full_AFR, 2), p = signif(p, 2))],
+      caption = "Interferon-γ score vs African-ancestry fraction")
+```
+
+The second row adds MCP-counter T-cell and B-lineage scores, testing again whether the association runs through immune-cell content (Section on tissue composition). The third row uses variation in AFR among self-identified Black patients only, which is less exposed to differences between collection sites.
+
+## Are the top race-associated genes inherited signals?
+
+For the `r nrow(ga_gt)` genes most strongly associated with self-reported race (M6), expression was regressed on AFR in three settings. A gene is flagged as a likely **germline** signal if it tracks AFR across all tumors (FDR < 0.05, same direction as the race effect) **and** also tracks AFR either within self-identified Black patients or in matched normal tissue (p < 0.05, same direction). Tracking ancestry in normal tissue, or as a dose-response within one self-reported group, is hard to explain by tumor biology or by social factors linked to the race label.
+
+```{r tab-germline}
+kable(ga_gt[order(p_all_tumors)][1:min(15, .N), .(Gene = gene, `Race log2FC` = round(race_log2FC, 2),
+        `β tumors` = round(beta_all_tumors, 2), `padj tumors` = signif(padj_all_tumors, 2),
+        `β within Black` = round(beta_within_black, 2), `p within Black` = signif(p_within_black, 2),
+        `β normals` = round(beta_normals, 2), `p normals` = signif(p_normals, 2), Germline = likely_germline)],
+      caption = "Top race-associated genes vs genetic AFR fraction (β = change in log2 TPM from AFR 0 to 1)")
+```
+
+```{r fig-germline, fig.cap = "Expression vs African-ancestry fraction for the six genes most associated with AFR, in tumors (top) and matched normals (bottom)."}
+img("results/genetic_ancestry/germline_gene_scatter.png", "100%")
+```
+
+`r if (nrow(germ)) paste0(nrow(germ), " gene(s) meet the germline criteria: ", paste(germ$gene, collapse = ", "), ". These are better explained by common inherited variants whose frequency differs between African and European populations (for example expression QTLs or copy-number polymorphisms) than by tumor biology, and should not be read as tumor biomarkers of race.") else "No gene meets the germline criteria; with few Black patients and few normal samples from them, the within-group and normal-tissue tests have limited power, so this is not evidence against a germline origin."` Confirming a specific variant would need the germline genotypes, which are controlled-access.
+
 # Tissue composition
 
 Bulk RNA-seq measures a mixture of tumor cells, stroma and immune cells. Composition was estimated for every sample with three signature-based methods: **ESTIMATE** stromal and immune scores (Yoshihara et al. 2013), **MCP-counter** abundance scores for eight immune and two stromal populations (Becht et al. 2016), and marker scores for smooth muscle (ACTG2, DES, CNN1, MYH11, ACTA2, TAGLN) and basal epithelium (KRT5, KRT15, TP63). These are relative scores, not absolute cell fractions.
@@ -354,7 +417,7 @@ img("results/survival/km_plots.png", "100%")
 - **Progression.** PFI in prostate cancer mostly reflects new tumor events after surgery, follow-up is short, and the scores were not tested in an independent outcome cohort.
 - **Purity.** Published purity estimates exist for only some samples. All pairs were kept, and results were robust to excluding the borderline ones.
 - **Validation cohort.** GSE104131 is small (13 pairs) and high-grade only, with counts from a different pipeline and annotation (Entrez IDs mapped to symbols).
-- **Ancestry.** Self-reported race is not genetic ancestry. African-ancestry samples are few, and race is confounded with collection site and grade in TCGA. Tumor-only comparisons cannot show tumor-vs-normal differences. All ancestry results are exploratory.
+- **Ancestry.** Self-reported race is not genetic ancestry; genetic ancestry proportions were used as a check (Section on genetic ancestry), but African-ancestry samples remain few. Race and ancestry are confounded with collection site and grade in TCGA. Tumor-only comparisons cannot show tumor-vs-normal differences. All ancestry results are exploratory.
 - **Multiple testing.** FDR is controlled within each analysis, not across the whole project.
 
 # Reproducibility
@@ -389,3 +452,4 @@ if (file.exists(sess)) cat("R session for the DESeq2 step:", readLines(sess)[1:3
 11. Yoshihara K, et al. Inferring tumour purity and stromal and immune cell admixture from expression data. *Nat Commun* 2013;4:2612.
 12. Becht E, et al. Estimating the population abundance of tissue-infiltrating immune and stromal cell populations using gene expression. *Genome Biol* 2016;17:218.
 13. Liu J, et al. An integrated TCGA pan-cancer clinical data resource to drive high-quality survival outcome analytics. *Cell* 2018;173:400–416.
+14. Carrot-Zhang J, et al. Comprehensive analysis of genetic ancestry and its molecular correlates in cancer. *Cancer Cell* 2020;37:639–654.
