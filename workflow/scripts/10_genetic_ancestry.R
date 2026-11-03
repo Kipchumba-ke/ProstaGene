@@ -61,7 +61,8 @@ fdr <- p[["fdr"]]
 set.seed(p[["seed"]])
 bp <- if (threads > 1) MulticoreParam(threads) else SerialParam()
 short <- function(x) gsub("_", " ", sub("^HALLMARK_", "", x))
-num <- function(x) suppressWarnings(as.numeric(gsub("[^0-9.eE-]", "", as.character(x))))
+num <- function(x) suppressWarnings(as.numeric(gsub("[^0-9.eE-]", "", as.character(x))))   # ancestry proportions (may use 1e-05)
+num_clin <- function(x) suppressWarnings(as.numeric(gsub("[^0-9.]", "", as.character(x)))) # clinical text, e.g. "Pattern 3"
 race_cols <- c(White = "#3A6EA5", Black = "#B5651D", `Other/unknown` = "grey55")
 
 # =================================================================
@@ -112,15 +113,16 @@ cd <- as.data.frame(colData(se))[tm$barcode, ]
 race_raw <- tolower(as.character(cd$race))
 tm[, race := fifelse(race_raw == "black or african american", "Black",
              fifelse(race_raw == "white", "White", "Other/unknown"))]
-gl <- num(cd$primary_gleason_grade) + num(cd$secondary_gleason_grade)
+gl <- num_clin(cd$primary_gleason_grade) + num_clin(cd$secondary_gleason_grade)
 tm[, gleason_group := factor(fifelse(gl <= 6, "GS6", fifelse(gl == 7, "GS7", "GS8_10")),
                              levels = c("GS6", "GS7", "GS8_10"))]
-tm[, age := if ("age_at_index" %in% names(cd)) num(cd$age_at_index) else num(cd$age_at_diagnosis) / 365.25]
+tm[, age := if ("age_at_index" %in% names(cd)) num_clin(cd$age_at_index) else num_clin(cd$age_at_diagnosis) / 365.25]
 
 dt <- merge(tm, anc[, .(patient, afr, eur, eas, call)], by = "patient")
 dt[, two_way := (afr + eur) >= p[["min_two_way"]]]
 fwrite(dt, out[["sheet"]], sep = "\t")
-message(sprintf("PRAD primary tumors with genetic ancestry: %d of %d", nrow(dt), nrow(tm)))
+message(sprintf("PRAD primary tumors with genetic ancestry: %d of %d (Gleason group known: %d; age known: %d)",
+                nrow(dt), nrow(tm), sum(!is.na(dt$gleason_group)), sum(!is.na(dt$age))))
 print(dt[, .(n = .N, median_AFR = round(median(afr), 3), min_AFR = round(min(afr), 3),
              max_AFR = round(max(afr), 3), AFR_ge_0.5 = sum(afr >= 0.5)), by = race])
 if (!all(is.na(dt$call))) { message("Published ancestry call by self-reported race:"); print(table(race = dt$race, call = dt$call)) }
@@ -144,6 +146,7 @@ hall <- split(hdf$gene_symbol, hdf$gs_name)
 rd <- as.data.frame(rowData(se))
 
 ta <- dt[two_way == TRUE & !is.na(gleason_group) & !is.na(age)]
+if (nrow(ta) < 50) stop("Only ", nrow(ta), " tumors with two-way ancestry and complete Gleason/age; check the clinical parsing above.")
 ta[, age_s := as.numeric(scale(age))]
 n_afr_hi <- sum(ta$afr >= 0.5)
 message(sprintf("Genome-wide model: %d two-way (AFR+EUR >= %.2f) tumors, %d with AFR >= 0.5",
