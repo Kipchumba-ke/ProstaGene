@@ -12,6 +12,7 @@ AN  = "results/ancestry"
 DC  = "results/deconv"
 SV  = "results/survival"
 GA  = "results/genetic_ancestry"
+SB  = "results/subtypes"
 GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
@@ -28,6 +29,7 @@ rule all:
         f"{DC}/deconv_summary.tsv",
         f"{SV}/survival_summary.tsv",
         f"{GA}/genetic_ancestry_summary.tsv",
+        f"{SB}/subtype_summary.tsv",
         "reports/report.html",
         "docs/index.html",
 
@@ -310,6 +312,35 @@ rule genetic_ancestry:
     script:
         "scripts/10_genetic_ancestry.R"
 
+rule subtypes:
+    input:
+        se_full   = OUT["se_full"],
+        se_paired = OUT["se_paired"],
+        ancestry  = f"{GA}/ancestry_sample_sheet.tsv",
+        survival  = f"{SV}/survival_dataset.tsv",
+    output:
+        sheet            = f"{SB}/subtype_sample_sheet.tsv",
+        erg_plot         = f"{SB}/erg_expression_call.png",
+        counts_plot      = f"{SB}/subtype_by_ancestry.png",
+        erg_ancestry     = f"{SB}/erg_vs_ancestry.tsv",
+        paired           = f"{SB}/paired_by_erg_hallmark.tsv",
+        paired_plot      = f"{SB}/paired_by_erg_hallmark.png",
+        subtype_hallmark = f"{SB}/subtype_hallmark.tsv",
+        subtype_plot     = f"{SB}/subtype_hallmark_heatmap.png",
+        cox              = f"{SB}/subtype_cox.tsv",
+        summary          = f"{SB}/subtype_summary.tsv",
+    params:
+        fdr       = 0.05,
+        min_count = 10,
+        seed      = 42,
+    threads: 4
+    log:
+        "logs/11_subtypes.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/11_subtypes.R"
+
 rule report:
     input:
         qmd = "reports/report.qmd",
@@ -325,6 +356,8 @@ rule report:
             f"{SV}/survival_summary.tsv", f"{SV}/cox_results.tsv",
             f"{GA}/genetic_ancestry_summary.tsv", f"{GA}/afr_hallmark.tsv",
             f"{GA}/germline_gene_tests.tsv", f"{GA}/ifn_vs_afr.tsv",
+            f"{SB}/subtype_summary.tsv", f"{SB}/paired_by_erg_hallmark.tsv",
+            f"{SB}/subtype_hallmark.tsv", f"{SB}/subtype_cox.tsv", f"{SB}/erg_vs_ancestry.tsv",
         ],
     output:
         html  = "reports/report.html",

@@ -105,6 +105,15 @@ ifng_afr <- ga_hh[pathway == "HALLMARK_INTERFERON_GAMMA_RESPONSE"]
 ifn_afr_sig <- isTRUE(ifng_afr$padj_afr < 0.05 & ifng_afr$NES_afr > 0)
 ifn_pt_p  <- ga_ifn$p[1]; ifn_pt_b <- ga_ifn$beta_sd_per_full_AFR[1]
 ifn_pt_sig <- isTRUE(ifn_pt_p < 0.05 & ifn_pt_b > 0)
+
+# M10: molecular subtypes
+sbs   <- rd("results/subtypes/subtype_summary.tsv")
+sb_sh <- rd("results/subtypes/subtype_sample_sheet.tsv")
+sb_ea <- rd("results/subtypes/erg_vs_ancestry.tsv")
+sb_pp <- rd("results/subtypes/paired_by_erg_hallmark.tsv")
+sb_hm <- rd("results/subtypes/subtype_hallmark.tsv")
+sb_cx <- rd("results/subtypes/subtype_cox.tsv")
+sv_   <- function(m) { v <- sbs[metric == m, value]; n <- suppressWarnings(as.numeric(v)); if (length(n) && !is.na(n)) n else v }
 ```
 
 # Summary {.unnumbered}
@@ -321,6 +330,57 @@ img("results/genetic_ancestry/germline_gene_scatter.png", "100%")
 
 `r if (nrow(germ)) paste0(nrow(germ), " gene(s) meet the germline criteria: ", paste(germ$gene, collapse = ", "), ". These are better explained by common inherited variants whose frequency differs between African and European populations (for example expression QTLs or copy-number polymorphisms) than by tumor biology, and should not be read as tumor biomarkers of race.") else "No gene meets the germline criteria; with few Black patients and few normal samples from them, the within-group and normal-tissue tests have limited power, so this is not evidence against a germline origin."` Confirming a specific variant would need the germline genotypes, which are controlled-access.
 
+# Molecular subtypes
+
+TCGA's 2015 analysis grouped primary prostate cancers by mutually exclusive driver events: fusions of **ERG** or other ETS genes (ETV1, ETV4, FLI1), and mutations in **SPOP** or **FOXA1** (Cancer Genome Atlas Research Network 2015). Those labels cover `r sv_("tumors_with_paper_subtype")` of `r sv_("tumors")` tumors here. ERG-fusion tumors switch ERG on strongly, so ERG status was also called from ERG expression for every tumor (threshold log~2~(TPM+1) = `r sv_("erg_threshold_log2tpm")`). That call agrees with the published label in `r sv_("erg_call_agreement_pct")`% of labelled tumors.
+
+```{r tab-subtypes}
+kable(sb_sh[!is.na(subtype_group), .N, by = .(Subtype = subtype_group)][order(-N)][, `%` := round(100 * N / sum(N), 1)][],
+      caption = "TCGA 2015 molecular subtype groups")
+```
+
+```{r fig-erg-call, fig.cap = "ERG expression in tumors and normals; dashed line is the ERG-positive threshold."}
+img("results/subtypes/erg_expression_call.png", "70%")
+```
+
+## ERG fusion and African ancestry
+
+ERG fusions are reported to be less common in men of African ancestry; a meta-analysis put prevalence at about 49% in men of European descent and 25% in men of African descent, and a South African study found 13% (Blackburn et al. 2019). Here, `r sv_("erg_pct_afr_high")`% of tumors from patients with AFR ≥ 0.5 (n = `r sv_("n_afr_high")`) are ERG-positive by expression, against `r sv_("erg_pct_afr_low")`% of the rest. Adjusted for Gleason group and age, the odds of an ERG-positive tumor change by a factor of `r sv_("erg_afr_logit_or")` from AFR 0 to 1 (p = `r sv_("erg_afr_logit_p")`).
+
+```{r fig-subtype-anc, fig.cap = "Subtype composition by genetic ancestry."}
+img("results/subtypes/subtype_by_ancestry.png", "55%")
+```
+
+## Does the tumor-vs-normal picture differ by ERG status?
+
+Among the `r n_pairs` patient pairs, `r sv_("paired_erg_pos")` tumors are ERG-positive and `r sv_("paired_erg_neg")` ERG-negative. A nested model estimated the tumor-vs-normal change separately in each group. `r sv_("genes_tumor_effect_differs_by_erg")` genes have a tumor effect that differs by ERG status (FDR < 0.05). At pathway level, with each patient counted once, `r sv_("pathways_differ_by_erg_fdr05")` Hallmark sets differ (FDR < 0.05).
+
+```{r tab-erg-paths}
+kable(head(sb_pp[order(p_wilcox), .(Pathway = short(pathway), `NES ERG+` = round(NES_ERGpos, 2), `NES ERG−` = round(NES_ERGneg, 2),
+                                    `Patient-level p` = signif(p_wilcox, 2), FDR = signif(padj_wilcox, 2))], 8),
+      caption = "Hallmark sets with the largest ERG+ vs ERG− difference in tumor effect")
+```
+
+```{r fig-erg-paired, fig.cap = "Tumor-vs-normal Hallmark changes in ERG-positive and ERG-negative pairs."}
+img("results/subtypes/paired_by_erg_hallmark.png", "80%")
+```
+
+## Subtype-specific programmes and progression
+
+Among labelled tumors, each subtype was compared with the "Other" group, adjusting for Gleason group and age (dots in the heatmap mark FDR < 0.05).
+
+```{r fig-subtype-hm, fig.cap = "Hallmark NES by molecular subtype, relative to 'Other'."}
+img("results/subtypes/subtype_hallmark_heatmap.png", "70%")
+```
+
+```{r tab-subtype-cox}
+kable(sb_cx[, .(Model = model, Term = term, HR = round(HR, 2), `95% CI` = sprintf("%.2f–%.2f", lower95, upper95),
+                p = signif(p, 2), n, Events = events)],
+      caption = "Progression-free interval by ERG status and subtype group (Cox models)")
+```
+
+Subtype analyses are limited by group sizes: SPOP and FOXA1 tumors are a small minority, and only `r sv_("n_afr_high")` tumors come from patients with majority African ancestry.
+
 # Tissue composition
 
 Bulk RNA-seq measures a mixture of tumor cells, stroma and immune cells. Composition was estimated for every sample with three signature-based methods: **ESTIMATE** stromal and immune scores (Yoshihara et al. 2013), **MCP-counter** abundance scores for eight immune and two stromal populations (Becht et al. 2016), and marker scores for smooth muscle (ACTG2, DES, CNN1, MYH11, ACTA2, TAGLN) and basal epithelium (KRT5, KRT15, TP63). These are relative scores, not absolute cell fractions.
@@ -457,3 +517,5 @@ if (file.exists(sess)) cat("R session for the DESeq2 step:", readLines(sess)[1:3
 12. Becht E, et al. Estimating the population abundance of tissue-infiltrating immune and stromal cell populations using gene expression. *Genome Biol* 2016;17:218.
 13. Liu J, et al. An integrated TCGA pan-cancer clinical data resource to drive high-quality survival outcome analytics. *Cell* 2018;173:400–416.
 14. Carrot-Zhang J, et al. Comprehensive analysis of genetic ancestry and its molecular correlates in cancer. *Cancer Cell* 2020;37:639–654.
+15. Blackburn J, et al. TMPRSS2-ERG fusions linked to prostate cancer racial health disparities: a focus on Africa. *Prostate* 2019;79:1191–1196.
+16. Ghana Prostate Study: TMPRSS2:ERG in West African men and a meta-analysis of racial differences (PMC5860576).
