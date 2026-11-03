@@ -11,6 +11,7 @@ VA  = "results/validation"
 AN  = "results/ancestry"
 DC  = "results/deconv"
 SV  = "results/survival"
+GA  = "results/genetic_ancestry"
 GEO = "data/raw/geo"   # GSE104131 files, downloaded manually (see README)
 
 rule all:
@@ -26,6 +27,7 @@ rule all:
         f"{AN}/ancestry_summary.tsv",
         f"{DC}/deconv_summary.tsv",
         f"{SV}/survival_summary.tsv",
+        f"{GA}/genetic_ancestry_summary.tsv",
         "reports/report.html",
         "docs/index.html",
 
@@ -262,6 +264,52 @@ rule survival:
     script:
         "scripts/09_survival.R"
 
+rule download_ancestry:
+    # Genetic ancestry calls, Carrot-Zhang et al. 2020 (Cancer Cell); GDC publication page CCG-AIM-2020
+    output:
+        admix = "data/raw/ancestry/Admixture_by_sample.txt",
+        ucsf  = "data/raw/ancestry/UCSF_Ancestry_Calls.csv",
+    log:
+        "logs/download_ancestry.log",
+    shell:
+        "mkdir -p data/raw/ancestry && "
+        "curl -fL -o {output.admix} https://api.gdc.cancer.gov/data/1300fae0-278d-4c73-8218-c140eee4f7fc > {log} 2>&1 && "
+        "curl -fL -o {output.ucsf} https://api.gdc.cancer.gov/data/fdfa536a-c3c8-405d-99d9-bc9375b5084c >> {log} 2>&1"
+
+
+rule genetic_ancestry:
+    input:
+        admix         = "data/raw/ancestry/Admixture_by_sample.txt",
+        ucsf          = "data/raw/ancestry/UCSF_Ancestry_Calls.csv",
+        se_full       = OUT["se_full"],
+        se_paired     = OUT["se_paired"],
+        race_table    = f"{AN}/tcga_race_deseq2.tsv",
+        race_hallmark = f"{AN}/tcga_race_hallmark.tsv",
+        scores        = f"{DC}/cell_scores.tsv",
+    output:
+        sheet         = f"{GA}/ancestry_sample_sheet.tsv",
+        race_plot     = f"{GA}/race_vs_genetic_ancestry.png",
+        afr_table     = f"{GA}/afr_deseq2.tsv",
+        afr_hallmark  = f"{GA}/afr_hallmark.tsv",
+        nes_plot      = f"{GA}/afr_vs_race_nes.png",
+        germline      = f"{GA}/germline_gene_tests.tsv",
+        germline_plot = f"{GA}/germline_gene_scatter.png",
+        ifn           = f"{GA}/ifn_vs_afr.tsv",
+        summary       = f"{GA}/genetic_ancestry_summary.tsv",
+    params:
+        fdr         = 0.05,
+        min_count   = 10,
+        min_two_way = 0.9,   # AFR + EUR fraction needed to enter the AFR-dose model
+        n_genes     = 30,    # top self-reported-race genes tested for a germline pattern
+        seed        = 42,
+    threads: 4
+    log:
+        "logs/10_genetic_ancestry.log",
+    conda:
+        "envs/r-bioc.yaml"
+    script:
+        "scripts/10_genetic_ancestry.R"
+
 rule report:
     input:
         qmd = "reports/report.qmd",
@@ -275,6 +323,8 @@ rule report:
             f"{DC}/deconv_summary.tsv", f"{DC}/adjusted_paired_hallmark.tsv",
             f"{DC}/race_adjusted_hallmark.tsv", f"{DC}/paired_composition_tests.tsv",
             f"{SV}/survival_summary.tsv", f"{SV}/cox_results.tsv",
+            f"{GA}/genetic_ancestry_summary.tsv", f"{GA}/afr_hallmark.tsv",
+            f"{GA}/germline_gene_tests.tsv", f"{GA}/ifn_vs_afr.tsv",
         ],
     output:
         html  = "reports/report.html",
