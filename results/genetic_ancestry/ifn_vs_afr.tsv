@@ -1,0 +1,4 @@
+model	beta_sd_per_full_AFR	p
+all tumors: + Gleason + age	0.255556990266697	0.176197418640331
+all tumors: + Gleason + age + T/B cells	-0.128874419291706	0.313952224819658
+Black patients only: + Gleason + age	-0.504973777120626	0.628547920559047
