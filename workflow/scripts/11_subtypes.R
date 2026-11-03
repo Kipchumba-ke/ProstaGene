@@ -265,6 +265,8 @@ ggsave(out[["subtype_plot"]], g, width = 7, height = max(4, 0.22 * length(keep_p
 sv <- fread(inp[["survival"]])[, .(barcode, pfi, pfi_months, t_stage)]
 cx <- merge(tm, sv, by = "barcode")[!is.na(gleason_group) & !is.na(t_stage) & !is.na(age)]
 cx[, gleason_group := factor(gleason_group, levels = c("GS6", "GS7", "GS8_10"))]
+# Gleason group enters as strata (separate baseline hazards): with few events, the GS6
+# reference group can have none, which makes Gleason coefficients infinite.
 # Subtype groups with fewer than 3 progression events give infinite hazard ratios
 # (e.g. FOXA1: 9 tumors, 0 events); merge them into "Other" for the Cox model.
 ev <- cx[!is.na(subtype_group), .(events = sum(pfi), n = .N), by = subtype_group]
@@ -281,10 +283,10 @@ cox_row <- function(f, d, term) {
 }
 cox <- rbind(
   cbind(model = "ERG (expression) unadjusted", cox_row(Surv(pfi_months, pfi) ~ erg_expr_positive, cx, "erg")),
-  cbind(model = "ERG (expression) + Gleason + T + age",
-        cox_row(Surv(pfi_months, pfi) ~ erg_expr_positive + gleason_group + t_stage + age, cx, "erg")),
-  cbind(model = "Subtype group (paper) + Gleason + T + age",
-        cox_row(Surv(pfi_months, pfi) ~ relevel(factor(cox_group), ref = "Other") + gleason_group + t_stage + age,
+  cbind(model = "ERG (expression) + T + age, stratified by Gleason",
+        cox_row(Surv(pfi_months, pfi) ~ erg_expr_positive + strata(gleason_group) + t_stage + age, cx, "erg")),
+  cbind(model = "Subtype group (paper) + T + age, stratified by Gleason",
+        cox_row(Surv(pfi_months, pfi) ~ relevel(factor(cox_group), ref = "Other") + strata(gleason_group) + t_stage + age,
                 cx[!is.na(cox_group)], "cox_group")))
 cox[, term := gsub("relevel\\(factor\\(cox_group\\), ref = \"Other\"\\)", "subtype:", term)]
 fwrite(cox, out[["cox"]], sep = "\t")
@@ -302,8 +304,8 @@ summ <- data.table(
             round(100 * conc, 1), v1(tab_e[afr_group == "AFR < 0.5", pct_erg]), v1(tab_e[afr_group == "AFR >= 0.5", pct_erg]),
             v1(tab_e[afr_group == "AFR >= 0.5", n]), round(exp(lr[["Estimate"]]), 3), signif(lr[["Pr(>|z|)"]], 3),
             n_pos, n_neg, n_dif, sum(pp$padj_wilcox < fdr),
-            round(cox[model == "ERG (expression) + Gleason + T + age", HR], 3),
-            signif(cox[model == "ERG (expression) + Gleason + T + age", p], 3),
+            round(cox[model == "ERG (expression) + T + age, stratified by Gleason", HR], 3),
+            signif(cox[model == "ERG (expression) + T + age, stratified by Gleason", p], 3),
             if (length(small)) paste(small, collapse = ";") else "none"))
 fwrite(summ, out[["summary"]], sep = "\t")
 message("Subtype summary:"); print(summ)

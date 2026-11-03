@@ -96,7 +96,8 @@ write("subtypes.json", {
     { afr_group: "AFR >= 0.5", subtype_group: "ERG", N: 9 }, { afr_group: "AFR >= 0.5", subtype_group: "Other", N: 13 }, { afr_group: "AFR >= 0.5", subtype_group: "ETS_other", N: 3 },
     { afr_group: "AFR >= 0.5", subtype_group: "SPOP", N: 4 }, { afr_group: "AFR >= 0.5", subtype_group: "FOXA1", N: 1 }],
   erg_ancestry: [{ afr_group: "AFR < 0.5", n: 391, erg_pos: 182, pct_erg: 46.5 }, { afr_group: "AFR >= 0.5", n: 53, erg_pos: 15, pct_erg: 28.3 }],
-  hallmark: [], cox: [{ model: "ERG (expression) + Gleason + T + age", term: "erg_expr_positiveTRUE", HR: 0.92, lower: 0.6, upper: 1.4, p: 0.7, n: 461, events: 76 }],
+  hallmark: [], cox: [{ model: "ERG (expression) unadjusted", term: "erg_expr_positiveTRUE", HR: 0.84, lower: 0.53, upper: 1.33, p: 0.45, n: 468, events: 77 },
+        { model: "ERG (expression) + T + age, stratified by Gleason", term: "erg_expr_positiveTRUE", HR: 0.75, lower: 0.47, upper: 1.21, p: 0.24, n: 468, events: 77 }],
 });
 
 write("composition.json", [

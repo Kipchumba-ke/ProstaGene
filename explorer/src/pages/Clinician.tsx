@@ -69,8 +69,8 @@ export default function Clinician({ data }: { data: AppData }) {
             <p className="muted small" style={{ marginTop: 16 }}>AFR = genetic African-ancestry fraction (Carrot-Zhang et al. 2020).</p>
           </div>
           <div className="stack">
-            {data.subtypes.cox.slice(0, 1).map((c) => (
-              <Metric key={c.term} value={`HR ${fmt(c.HR)}`} label={<>ERG-positive vs negative for progression, adjusted for Gleason, T stage and age (95% CI {fmt(c.lower)}–{fmt(c.upper)}, p = {fmtP(c.p)})</>} />
+            {data.subtypes.cox.filter((c) => c.model.startsWith("ERG") && c.model.includes("stratified")).slice(0, 1).map((c) => (
+              <Metric key={c.term} value={`HR ${fmt(c.HR)}`} label={<>ERG-positive vs negative for progression, adjusted for T stage and age and stratified by Gleason group (95% CI {fmt(c.lower)}–{fmt(c.upper)}, p = {fmtP(c.p)})</>} />
             ))}
             <p className="muted">Subtype frequencies differ by ancestry; group sizes for SPOP and FOXA1 tumors, and for patients of African ancestry, are small.</p>
           </div>
