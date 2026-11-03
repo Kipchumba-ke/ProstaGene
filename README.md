@@ -19,7 +19,9 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
 | **Pathways** | 27 / 50 Hallmark sets enriched. MYC targets, E2F/G2M proliferation and androgen response up; myogenesis, EMT and inflammatory sets down, largely reflecting stromal loss |
 | **Robustness** | Excluding 4 borderline-purity pairs: fold-change ρ = 0.99, DEG Jaccard = 0.87 |
 | **Validation (GSE104131, 13 pairs)** | 92% of TCGA DEGs same direction; TCGA signature AUC = 0.98; 20 / 27 Hallmark sets replicate (NES r = 0.73) |
-| **Ancestry (exploratory)** | Tumors from Black patients (n = 57) show higher interferon-α/γ signalling than tumors from White patients (n = 384), robust to tissue-source-site adjustment. No ancestry-specific tumor effect detectable in the small GEO cohort |
+| **Tissue composition** | Smooth muscle and basal cells are lower in 47 / 52 and 45 / 52 tumors. MYC, E2F/G2M and androgen-response programmes stay significant after adjusting for stromal, immune, smooth-muscle and basal content; several immune and stromal sets do not |
+| **Progression (PFI, 497 tumors, 93 events)** | Proliferation (E2F targets) predicts faster progression unadjusted (HR 1.43 per SD), but no expression score adds information beyond Gleason grade, T stage and age |
+| **Ancestry (exploratory)** | Interferon-α/γ sets are higher in Black patients' tumors (n = 57 vs 384 White) and reproduce with genetic ancestry (pathway NES r = 0.87 vs self-reported race). At the patient level the shift is modest (+0.26 SD per unit African ancestry, p = 0.18) and tracks T- and B-cell content. Several top race-associated genes behave like inherited (germline) signals |
 
 <p align="center">
   <img src="results/gsea/hallmark_nes.png" width="48%">
@@ -28,6 +30,7 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
 
 ## Methodological notes worth reading
 
+- **Self-reported race vs genetic ancestry:** 2 of 53 self-identified Black patients have near-zero African ancestry, and 2 of 394 White patients are majority African ancestry. Genetic ancestry proportions (Carrot-Zhang et al. 2020) were used as a check on every race result.
 - **Purity:** four tumors sat near the normal cluster on PCA. They were kept, with a sensitivity analysis, rather than dropped based on how the data looked.
 - **A mapping artifact:** the strongest "race-associated" genes were mitochondrial pseudogenes, 14 of 15 higher in Black patients. The likely cause is African mtDNA haplogroups diverging from the European reference mitochondrial genome. They were excluded and reported separately.
 - **An anti-conservative test caught and replaced:** pre-ranked GSEA on an ancestry interaction statistic flagged 41 / 50 pathways from just 7 vs 6 patients. A patient-level test (exact Wilcoxon on per-pair pathway scores) found none.
@@ -36,7 +39,8 @@ ancestry analysis. Everything runs as one reproducible Snakemake pipeline and re
 ## Pipeline
 
 ```
-download_tcga → build_paired_set → qc → deseq2 → gsea → geo_validation → ancestry → report
+download_tcga → build_paired_set → qc → deseq2 → gsea → geo_validation → ancestry
+  → deconvolution → survival → genetic_ancestry → report
 ```
 
 | Step | Script | Tools |
@@ -48,6 +52,9 @@ download_tcga → build_paired_set → qc → deseq2 → gsea → geo_validation
 | Pathways | `05_gsea.R` | fgsea + msigdbr (Hallmark, Reactome), clusterProfiler ORA |
 | Validation | `06_geo_validation.R` | GSE104131, NCBI counts, org.Hs.eg.db |
 | Ancestry | `07_ancestry.R` | nested DESeq2 design, patient-level Wilcoxon, site-matched models |
+| Composition | `08_deconvolution.R` | ESTIMATE (tidyestimate), MCP-counter, marker scores, composition-adjusted DESeq2 |
+| Progression | `09_survival.R` | TCGA-CDR progression-free interval, Cox models, C-index |
+| Genetic ancestry | `10_genetic_ancestry.R` | Carrot-Zhang et al. 2020 ancestry proportions, AFR-dose model, germline tests |
 | Report | `reports/report.qmd` | Quarto |
 
 ## Running it
@@ -57,6 +64,7 @@ Requires Linux or macOS (on Windows, use WSL2) and about 3 GB of disk.
 ```bash
 micromamba create -n prad-dge -f workflow/envs/r-bioc.yaml
 micromamba activate prad-dge
+Rscript workflow/scripts/install_extras.R   # one time: tidyestimate (CRAN) + MCPcounter (GitHub)
 snakemake -n            # dry run
 snakemake --cores 4     # full run
 ```
@@ -91,7 +99,7 @@ docs/index.html                 # rendered report (GitHub Pages)
 
 ## Limitations
 
-Bulk tissue mixes cell-state and composition effects. Purity estimates are incomplete. The validation cohort is small and high-grade only. Self-reported race is not genetic ancestry, and African-ancestry samples are few. All ancestry results are exploratory. See the report for details.
+Bulk tissue mixes cell-state and composition effects; deconvolution scores are relative, not true cell fractions. Purity estimates are incomplete. The validation cohort is small and high-grade only. Progression follow-up is short and the scores were not tested in an independent outcome cohort. African-ancestry samples are few, and race and ancestry are confounded with collection site and grade. All ancestry results are exploratory. See the report for details.
 
 ## Data use
 
